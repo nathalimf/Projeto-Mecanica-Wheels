@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mecânica Wheels - Sistema de Gestão</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            dark: '#0f172a',
+                            card: '#1e293b',
+                            accent: '#3b82f6',
+                            danger: '#ef4444',
+                            success: '#22c55e',
+                            warning: '#f59e0b'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen flex flex-col">
+
+    <script>
+        // Estado Global da Aplicação
+        const state = {
+            isLoggedIn: false,
+            currentUser: null,
+            activeTab: 'dashboard',
+            // 8 Clientes Iniciais com status de ativo/inativo
+            clientes: [
+                { id: 1, nome: 'Carlos Eduardo', telefone: '(11) 98765-4321', veiculo: 'Volkswagen Gol', placa: 'ABC-1234', statusCliente: 'Ativo' },
+                { id: 2, nome: 'Mariana Souza', telefone: '(11) 97654-3210', veiculo: 'Chevrolet Onix', placa: 'XYZ-5678', statusCliente: 'Ativo' },
+                { id: 3, nome: 'Roberto Carlos', telefone: '(11) 96543-2109', veiculo: 'Fiat Palio', placa: 'DEF-9012', statusCliente: 'Ativo' },
+                { id: 4, nome: 'Ana Paula Lima', telefone: '(11) 95432-1098', veiculo: 'Hyundai HB20', placa: 'GHI-3456', statusCliente: 'Ativo' },
+                { id: 5, nome: 'Lucas Martins', telefone: '(11) 94321-0987', veiculo: 'Ford Ka', placa: 'JKL-7890', statusCliente: 'Ativo' },
+                { id: 6, nome: 'Fernanda Costa', telefone: '(11) 93210-9876', veiculo: 'Toyota Corolla', placa: 'MNO-2345', statusCliente: 'Ativo' },
+                { id: 7, nome: 'Gabriel Santos', telefone: '(11) 92109-8765', veiculo: 'Honda Civic', placa: 'PQR-6789', statusCliente: 'Ativo' },
+                { id: 8, nome: 'Juliana Ribeiro', telefone: '(11) 91098-7654', veiculo: 'Renault Sandero', placa: 'STU-1239', statusCliente: 'Inativo' }
+            ],
+            // Orçamentos Iniciais com Data Limite e Prioridade
+            orcamentos: [
+                { id: 1, cliente: 'Carlos Eduardo', servico: 'Troca de Embreagem', valor: 850.00, status: 'Aprovado', dataLimite: '2026-09-25', prioridade: 'Alta' },
+                { id: 2, cliente: 'Mariana Souza', servico: 'Revisão dos 40.000km', valor: 620.00, status: 'Aprovado', dataLimite: '2026-04-02', prioridade: 'Alta' },
+                { id: 3, cliente: 'Roberto Carlos', servico: 'Troca de Pastilhas de Freio', valor: 350.00, status: 'Aprovado', dataLimite: '2026-04-15', prioridade: 'Normal' }
+            ],
+            // Vagas (Total 10 vagas) - Alocando Carlos, Mariana e Roberto
+            vagas: [
+                { vagaId: 1, ocupada: true, veiculo: 'Volkswagen Gol', cliente: 'Carlos Eduardo' },
+                { vagaId: 2, ocupada: true, veiculo: 'Chevrolet Onix', cliente: 'Mariana Souza' },
+                { vagaId: 3, ocupada: true, veiculo: 'Fiat Palio', cliente: 'Roberto Carlos' },
+                { vagaId: 4, ocupada: false, veiculo: '-', cliente: '-' },
+                { vagaId: 5, ocupada: false, veiculo: '-', cliente: '-' },
+                { vagaId: 6, ocupada: false, veiculo: '-', cliente: '-' },
+                { vagaId: 7, ocupada: false, veiculo: '-', cliente: '-' },
+                { vagaId: 8, ocupada: false, veiculo: '-', cliente: '-' },
+                { vagaId: 9, ocupada: false, veiculo: '-', cliente: '-' },
+                { vagaId: 10, ocupada: false, veiculo: '-', cliente: '-' }
+            ],
+            // Fila de Espera para vagas quando todas estão cheias (ordenada por ordem de cadastro/orçamento)
+            filaEspera: [],
+            // Atrasos / Prioridades (Sincronizado automaticamente)
+            atrasos: []
+        };
+
+        // Função utilitária para verificar prazo com base na data atual (2026-10-05)
+        function calcularStatusPrazo(dataLimiteStr) {
+            if (!dataLimiteStr) return { status: 'Normal', atrasado: false, dias: 0 };
+            const hoje = new Date('2026-10-05');
+            const dataLim = new Date(dataLimiteStr + 'T00:00:00');
+            const diffTime = dataLim - hoje;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays < 0) {
+                return { status: 'Atrasado', atrasado: true, dias: Math.abs(diffDays) };
+            } else {
+                return { status: 'Dentro do Prazo', atrasado: false, diasRestantes: diffDays };
+            }
+        }
+
+        // Função para sincronizar automaticamente orçamentos atrasados com a aba de Atrasos
+        function sincronizarAtrasosAutomaticos() {
+            state.orcamentos.forEach(orc => {
+                const prazo = calcularStatusPrazo(orc.dataLimite);
+                const clienteObj = state.clientes.find(c => c.nome === orc.cliente);
+                const veiculoStr = clienteObj ? clienteObj.veiculo : 'Veículo';
+
+                const existeAtraso = state.atrasos.find(a => a.cliente === orc.cliente && a.motivo.includes(orc.servico));
+
+                if (prazo.atrasado) {
+                    if (!existeAtraso) {
+                        const newId = state.atrasos.length > 0 ? Math.max(...state.atrasos.map(a => a.id)) + 1 : 1;
+                        state.atrasos.push({
+                            id: newId,
+                            cliente: orc.cliente,
+                            veiculo: veiculoStr,
+                            motivo: `Prazo estourado (${orc.servico})`,
+                            diasAtraso: prazo.dias,
+                            prioridade: orc.prioridade
+                        });
+                    } else {
+                        existeAtraso.diasAtraso = prazo.dias;
+                        existeAtraso.prioridade = orc.prioridade;
+                    }
+                } else {
+                    if (existeAtraso) {
+                        state.atrasos = state.atrasos.filter(a => !(a.cliente === orc.cliente && a.motivo.includes(orc.servico)));
+                    }
+                }
+            });
+        }
+
+        // Função para alocar vaga ou colocar na fila de espera com base nas regras de negócio
+        function verificarEAlocarVagaAutomatica(nomeCliente) {
+            const clienteObj = state.clientes.find(c => c.nome === nomeCliente);
+            if (!clienteObj || clienteObj.statusCliente !== 'Ativo') {
+                showToast(`Cliente inativo ou não encontrado. Apenas clientes ATIVOS podem ocupar vagas.`, 'warning');
+                return;
+            }
+
+            const jaTemVaga = state.vagas.some(v => v.ocupada && v.cliente === nomeCliente);
+            if (jaTemVaga) return;
+
+            const jaNaFila = state.filaEspera.some(f => f.cliente === nomeCliente);
+
+            const primeiraVagaLivre = state.vagas.find(v => !v.ocupada);
+            if (primeiraVagaLivre) {
+                primeiraVagaLivre.ocupada = true;
+                primeiraVagaLivre.cliente = clienteObj.nome;
+                primeiraVagaLivre.veiculo = clienteObj.veiculo;
+                showToast(`Vaga #${primeiraVagaLivre.vagaId} ocupada automaticamente para ${nomeCliente}!`, 'success');
+            } else {
+                // Todas as vagas cheias: colocar na fila de espera por ordem de cadastro
+                if (!jaNaFila) {
+                    const newFilaId = state.filaEspera.length > 0 ? Math.max(...state.filaEspera.map(f => f.id)) + 1 : 1;
+                    state.filaEspera.push({
+                        id: newFilaId,
+                        cliente: clienteObj.nome,
+                        veiculo: clienteObj.veiculo,
+                        dataCadastro: new Date().toLocaleDateString('pt-BR')
+                    });
+                    showToast(`Todas as 10 vagas estão ocupadas! ${nomeCliente} foi adicionado à Fila de Espera.`, 'warning');
+                }
+            }
+        }
+
+        // Função para processar a fila de espera automaticamente quando uma vaga é liberada
+        function processarFilaEspera() {
+            const primeiraVagaLivre = state.vagas.find(v => !v.ocupada);
+            if (primeiraVagaLivre && state.filaEspera.length > 0) {
+                const proximoDaFila = state.filaEspera.shift(); // Remove o primeiro da fila (ordem de cadastro)
+                primeiraVagaLivre.ocupada = true;
+                primeiraVagaLivre.cliente = proximoDaFila.cliente;
+                primeiraVagaLivre.veiculo = proximoDaFila.veiculo;
+                showToast(`Vaga #${primeiraVagaLivre.vagaId} preenchida automaticamente pelo cliente em espera: ${proximoDaFila.cliente}!`, 'success');
+            }
+        }
+    </script>
+
+    <!-- TELA DE LOGIN -->
+    <div id="login-screen" class="fixed inset-0 bg-slate-950 flex items-center justify-center z-50 p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-8 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
+            
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600/10 text-blue-500 rounded-full mb-4 text-2xl shadow-inner">
+                    <i class="fa-solid fa-wrench"></i>
+                </div>
+                <h1 class="text-2xl font-bold tracking-tight text-white">Mecânica Wheels</h1>
+                <p class="text-sm text-slate-400 mt-1">Painel Administrativo da Oficina</p>
+            </div>
+
+            <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 uppercase tracking-wider mb-1">Usuário</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                            <i class="fa-solid fa-user"></i>
+                        </span>
+                        <input type="text" id="username" required placeholder="admin" value="admin"
+                            class="w-full pl-10 pr-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 uppercase tracking-wider mb-1">Senha</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                            <i class="fa-solid fa-lock"></i>
+                        </span>
+                        <input type="password" id="password" required placeholder="••••••••" value="123456"
+                            class="w-full pl-10 pr-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm">
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full mt-2 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-lg transition-all shadow-lg shadow-blue-600/20 text-sm flex items-center justify-center space-x-2">
+                    <span>Entrar no Sistema</span>
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                </button>
+            </form>
+
+            <div class="mt-6 text-center text-xs text-slate-500">
+                <p>Equipe: Cinthia, Michelly, Juliana, Erick & Nathali</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- APLICATIVO PRINCIPAL -->
+    <div id="app-container" class="hidden flex-1 flex flex-col">
+        <!-- Header / Navbar -->
+        <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('dashboard')">
+                        <div class="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-md">
+                            <i class="fa-solid fa-car-side text-lg"></i>
+                        </div>
+                        <div>
+                            <span class="font-bold text-lg tracking-tight text-white">Mecânica Wheels</span>
+                            <span class="block text-[10px] text-blue-400 font-medium uppercase tracking-widest">Gestão Automotiva</span>
+                        </div>
+                    </div>
+
+                    <!-- Navegação Desktop -->
+                    <nav class="hidden md:flex items-center space-x-1">
+                        <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-blue-600/10 text-blue-400">
+                            <i class="fa-solid fa-chart-pie mr-2"></i>Dashboard
+                        </button>
+                        <button onclick="switchTab('clientes')" id="nav-clientes" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
+                            <i class="fa-solid fa-users mr-2"></i>Clientes
+                        </button>
+                        <button onclick="switchTab('orcamentos')" id="nav-orcamentos" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
+                            <i class="fa-solid fa-file-invoice-dollar mr-2"></i>Orçamentos
+                        </button>
+                        <button onclick="switchTab('vagas')" id="nav-vagas" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
+                            <i class="fa-solid fa-square-parking mr-2"></i>Vagas & Fila
+                        </button>
+                        <button onclick="switchTab('historico')" id="nav-historico" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
+                            <i class="fa-solid fa-clock-rotate-left mr-2"></i>Histórico & Inativos
+                        </button>
+                        <button onclick="switchTab('atrasos')" id="nav-atrasos" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
+                            <i class="fa-solid fa-triangle-exclamation mr-2"></i>Atrasos
+                        </button>
+                    </nav>
+
+                    <!-- User Info & Logout -->
+                    <div class="flex items-center space-x-4">
+                        <div class="hidden sm:flex items-center space-x-2 text-sm text-slate-300 bg-slate-800/60 px-3 py-1.5 rounded-full border border-slate-700/50">
+                            <i class="fa-solid fa-user-circle text-blue-400"></i>
+                            <span id="user-display">Admin</span>
+                        </div>
+                        <button onclick="handleLogout()" class="bg-slate-800 hover:bg-red-900/40 text-slate-300 hover:text-red-400 p-2 rounded-lg transition-all border border-slate-700 hover:border-red-500/50" title="Sair do Sistema">
+                            <i class="fa-solid fa-right-from-bracket"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- Menu mobile bar -->
+            <div class="md:hidden flex border-t border-slate-800 overflow-x-auto px-2 py-1 bg-slate-900/90">
+                <button onclick="switchTab('dashboard')" id="mob-dashboard" class="mob-btn flex-1 py-2 px-2 text-[11px] font-medium text-center text-blue-400 whitespace-nowrap"><i class="fa-solid fa-chart-pie block mb-1"></i>Dash</button>
+                <button onclick="switchTab('clientes')" id="mob-clientes" class="mob-btn flex-1 py-2 px-2 text-[11px] font-medium text-center text-slate-400 whitespace-nowrap"><i class="fa-solid fa-users block mb-1"></i>Clientes</button>
+                <button onclick="switchTab('orcamentos')" id="mob-orcamentos" class="mob-btn flex-1 py-2 px-2 text-[11px] font-medium text-center text-slate-400 whitespace-nowrap"><i class="fa-solid fa-file-invoice block mb-1"></i>Orçamentos</button>
+                <button onclick="switchTab('vagas')" id="mob-vagas" class="mob-btn flex-1 py-2 px-2 text-[11px] font-medium text-center text-slate-400 whitespace-nowrap"><i class="fa-solid fa-square-parking block mb-1"></i>Vagas</button>
+                <button onclick="switchTab('historico')" id="mob-historico" class="mob-btn flex-1 py-2 px-2 text-[11px] font-medium text-center text-slate-400 whitespace-nowrap"><i class="fa-solid fa-clock-rotate-left block mb-1"></i>Histórico</button>
+                <button onclick="switchTab('atrasos')" id="mob-atrasos" class="mob-btn flex-1 py-2 px-2 text-[11px] font-medium text-center text-slate-400 whitespace-nowrap"><i class="fa-solid fa-triangle-exclamation block mb-1"></i>Atrasos</button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            
+            <!-- SEÇÃO: DASHBOARD -->
+            <section id="tab-dashboard" class="tab-content space-y-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold tracking-tight text-white">Dashboard Geral</h2>
+                        <p class="text-sm text-slate-400">Visão consolidada do status da oficina mecânica em tempo real.</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="switchTab('clientes')" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-blue-600/20 flex items-center space-x-2">
+                            <i class="fa-solid fa-user-plus"></i>
+                            <span>Novo Cliente</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Cards de Métricas -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+                    <!-- Clientes Ativos -->
+                    <div onclick="switchTab('clientes')" class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 cursor-pointer transition shadow-xl group">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Clientes Ativos</p>
+                                <h3 id="stat-clientes" class="text-3xl font-extrabold text-white mt-2 group-hover:text-blue-400 transition">7</h3>
+                            </div>
+                            <div class="w-12 h-12 bg-blue-500/10 text-blue-500 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 transition">
+                                <i class="fa-solid fa-users"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex items-center text-xs text-blue-400 font-medium">
+                            <span>Ver ativos</span>
+                            <i class="fa-solid fa-arrow-right ml-1.5 group-hover:translate-x-1 transition"></i>
+                        </div>
+                    </div>
+
+                    <!-- Orçamentos -->
+                    <div onclick="switchTab('orcamentos')" class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 cursor-pointer transition shadow-xl group">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Orçamentos</p>
+                                <h3 id="stat-orcamentos" class="text-3xl font-extrabold text-white mt-2 group-hover:text-amber-400 transition">3</h3>
+                            </div>
+                            <div class="w-12 h-12 bg-amber-500/10 text-amber-500 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 transition">
+                                <i class="fa-solid fa-file-invoice-dollar"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex items-center text-xs text-amber-400 font-medium">
+                            <span>Gerenciar propostas</span>
+                            <i class="fa-solid fa-arrow-right ml-1.5 group-hover:translate-x-1 transition"></i>
+                        </div>
+                    </div>
+
+                    <!-- Vagas Livres -->
+                    <div onclick="switchTab('vagas')" class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 cursor-pointer transition shadow-xl group">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Vagas Livres (de 10)</p>
+                                <h3 id="stat-vagas" class="text-3xl font-extrabold text-white mt-2 group-hover:text-emerald-400 transition">7</h3>
+                            </div>
+                            <div class="w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 transition">
+                                <i class="fa-solid fa-square-parking"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex items-center text-xs text-emerald-400 font-medium">
+                            <span>Ver vagas & fila</span>
+                            <i class="fa-solid fa-arrow-right ml-1.5 group-hover:translate-x-1 transition"></i>
+                        </div>
+                    </div>
+
+                    <!-- Fila de Espera -->
+                    <div onclick="switchTab('vagas')" class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 cursor-pointer transition shadow-xl group">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Fila de Espera</p>
+                                <h3 id="stat-fila" class="text-3xl font-extrabold text-white mt-2 group-hover:text-indigo-400 transition">0</h3>
+                            </div>
+                            <div class="w-12 h-12 bg-indigo-500/10 text-indigo-500 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 transition">
+                                <i class="fa-solid fa-people-line"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex items-center text-xs text-indigo-400 font-medium">
+                            <span>Ver ordem de espera</span>
+                            <i class="fa-solid fa-arrow-right ml-1.5 group-hover:translate-x-1 transition"></i>
+                        </div>
+                    </div>
+
+                    <!-- Atrasos da Mecânica -->
+                    <div onclick="switchTab('atrasos')" class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 cursor-pointer transition shadow-xl group">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Atrasos</p>
+                                <h3 id="stat-atrasos" class="text-3xl font-extrabold text-white mt-2 group-hover:text-rose-400 transition">1</h3>
+                            </div>
+                            <div class="w-12 h-12 bg-rose-500/10 text-rose-500 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 transition">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex items-center text-xs text-rose-400 font-medium">
+                            <span>Verificar pendências</span>
+                            <i class="fa-solid fa-arrow-right ml-1.5 group-hover:translate-x-1 transition"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Painel Informativo / Atalhos Rápidos -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4">
+                    <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                        <h3 class="text-lg font-bold text-white mb-4 flex items-center">
+                            <i class="fa-solid fa-clipboard-list text-blue-500 mr-2"></i>Regras de Negócio e Gestão de Vagas
+                        </h3>
+                        <p class="text-sm text-slate-300 leading-relaxed mb-4">
+                            O sistema agora valida se o cliente está <strong>Ativo</strong> e possui orçamento aprovado. Caso as 10 vagas estejam cheias, os clientes aprovados entram em uma <strong>Fila de Espera ordenada por ordem de cadastro</strong>, preenchendo as vagas automaticamente assim que houver uma liberação.
+                        </p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div class="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700/50">
+                                <span class="text-xs text-blue-400 font-semibold block mb-1">CLIENTES INATIVOS</span>
+                                <span class="text-sm text-slate-200">Permanecem guardados com segurança no Histórico do sistema</span>
+                            </div>
+                            <div class="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700/50">
+                                <span class="text-xs text-emerald-400 font-semibold block mb-1">FILA AUTOMÁTICA</span>
+                                <span class="text-sm text-slate-200">Alocação FIFO (First In, First Out) na liberação de vagas</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-lg font-bold text-white mb-2 flex items-center">
+                                <i class="fa-solid fa-shield-halved text-emerald-500 mr-2"></i>Sessão Ativa
+                            </h3>
+                            <p class="text-sm text-slate-400 mb-4">Você está conectado como administrador do sistema Wheels.</p>
+                            <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700/50 space-y-2 text-xs">
+                                <div class="flex justify-between"><span class="text-slate-400">Status:</span><span class="text-emerald-400 font-semibold">Online</span></div>
+                                <div class="flex justify-between"><span class="text-slate-400">Permissão:</span><span class="text-white font-semibold">Total (CRUD)</span></div>
+                            </div>
+                        </div>
+                        <button onclick="handleLogout()" class="mt-6 w-full bg-slate-800 hover:bg-red-900/30 text-slate-300 hover:text-red-400 py-2.5 rounded-xl text-sm font-medium border border-slate-700 transition flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-right-from-bracket"></i>
+                            <span>Encerrar Sessão</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SEÇÃO: CLIENTES ATIVOS -->
+            <section id="tab-clientes" class="tab-content hidden space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold tracking-tight text-white">Gestão de Clientes Ativos</h2>
+                        <p class="text-sm text-slate-400">Adicione, edite ou altere o status para inativo. Clientes inativos vão direto para o Histórico.</p>
+                    </div>
+                    <button onclick="openModalCliente()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition shadow-lg shadow-blue-600/20 flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-user-plus"></i>
+                        <span>Adicionar Cliente</span>
+                    </button>
+                </div>
+
+                <!-- Tabela de Clientes Ativos -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-800/50 border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                    <th class="py-3.5 px-6">ID</th>
+                                    <th class="py-3.5 px-6">Nome do Cliente</th>
+                                    <th class="py-3.5 px-6">Telefone</th>
+                                    <th class="py-3.5 px-6">Veículo</th>
+                                    <th class="py-3.5 px-6">Placa</th>
+                                    <th class="py-3.5 px-6">Status</th>
+                                    <th class="py-3.5 px-6 text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clientes-tbody" class="divide-y divide-slate-800/60 text-sm">
+                                <!-- Preenchido dinamicamente via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SEÇÃO: ORÇAMENTOS -->
+            <section id="tab-orcamentos" class="tab-content hidden space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold tracking-tight text-white">Controle de Orçamentos & Prazos</h2>
+                        <p class="text-sm text-slate-400">Orçamentos aprovados de clientes ativos ocupam vagas ou entram na fila de espera automaticamente.</p>
+                    </div>
+                    <button onclick="openModalOrcamento()" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition shadow-lg shadow-amber-600/20 flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-file-circle-plus"></i>
+                        <span>Novo Orçamento</span>
+                    </button>
+                </div>
+
+                <!-- Tabela de Orçamentos -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-800/50 border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                    <th class="py-3.5 px-6">ID</th>
+                                    <th class="py-3.5 px-6">Cliente</th>
+                                    <th class="py-3.5 px-6">Serviço</th>
+                                    <th class="py-3.5 px-6">Valor</th>
+                                    <th class="py-3.5 px-6">Data Limite</th>
+                                    <th class="py-3.5 px-6">Prazo / Status</th>
+                                    <th class="py-3.5 px-6">Prioridade</th>
+                                    <th class="py-3.5 px-6 text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="orcamentos-tbody" class="divide-y divide-slate-800/60 text-sm">
+                                <!-- Preenchido via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SEÇÃO: VAGAS & FILA DE ESPERA -->
+            <section id="tab-vagas" class="tab-content hidden space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold tracking-tight text-white">Controle de Vagas & Fila de Espera</h2>
+                        <p class="text-sm text-slate-400">Monitore as 10 vagas e a fila de espera gerida por ordem de cadastro.</p>
+                    </div>
+                    <button onclick="openModalVaga()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition shadow-lg shadow-emerald-600/20 flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-car"></i>
+                        <span>Alocar / Liberar Vaga</span>
+                    </button>
+                </div>
+
+                <!-- Grid de Vagas -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4" id="vagas-grid">
+                    <!-- Gerado via JS -->
+                </div>
+
+                <!-- Painel da Fila de Espera -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mt-8">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-white flex items-center">
+                            <i class="fa-solid fa-people-line text-indigo-400 mr-2"></i>Fila de Espera para Vagas (Ordem de Cadastro)
+                        </h3>
+                        <span id="badge-fila-count" class="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-3 py-1 rounded-full text-xs font-semibold">0 cliente(s) em espera</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-800/50 border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                    <th class="py-3 px-4">Posição</th>
+                                    <th class="py-3 px-4">Cliente</th>
+                                    <th class="py-3 px-4">Veículo</th>
+                                    <th class="py-3 px-4">Data de Inclusão</th>
+                                    <th class="py-3 px-4 text-right">Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fila-tbody" class="divide-y divide-slate-800/60 text-sm">
+                                <!-- Preenchido via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SEÇÃO: HISTÓRICO & CLIENTES INATIVOS -->
+            <section id="tab-historico" class="tab-content hidden space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold tracking-tight text-white">Histórico & Clientes Inativos</h2>
+                        <p class="text-sm text-slate-400">Repositório de clientes desativados e histórico de registros da oficina.</p>
+                    </div>
+                </div>
+
+                <!-- Tabela de Clientes Inativos -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-800/50 border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                    <th class="py-3.5 px-6">ID</th>
+                                    <th class="py-3.5 px-6">Nome do Cliente</th>
+                                    <th class="py-3.5 px-6">Telefone</th>
+                                    <th class="py-3.5 px-6">Veículo</th>
+                                    <th class="py-3.5 px-6">Placa</th>
+                                    <th class="py-3.5 px-6">Status</th>
+                                    <th class="py-3.5 px-6 text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historico-tbody" class="divide-y divide-slate-800/60 text-sm">
+                                <!-- Preenchido via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SEÇÃO: ATRASOS -->
+            <section id="tab-atrasos" class="tab-content hidden space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold tracking-tight text-white">Atrasos & Prioridades da Oficina</h2>
+                        <p class="text-sm text-slate-400">Lista gerada automaticamente com base nos orçamentos que ultrapassaram a data limite.</p>
+                    </div>
+                    <button onclick="openModalAtraso()" class="bg-rose-600 hover:bg-rose-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition shadow-lg shadow-rose-600/20 flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Adicionar Observação de Atraso</span>
+                    </button>
+                </div>
+
+                <!-- Tabela de Atrasos -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-800/50 border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                    <th class="py-3.5 px-6">ID</th>
+                                    <th class="py-3.5 px-6">Cliente</th>
+                                    <th class="py-3.5 px-6">Veículo</th>
+                                    <th class="py-3.5 px-6">Motivo / Serviço</th>
+                                    <th class="py-3.5 px-6">Dias de Atraso</th>
+                                    <th class="py-3.5 px-6">Prioridade</th>
+                                    <th class="py-3.5 px-6 text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="atrasos-tbody" class="divide-y divide-slate-800/60 text-sm">
+                                <!-- Preenchido via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-slate-900 border-t border-slate-800 py-6 mt-auto text-center text-xs text-slate-500">
+            <p>Mecânica Wheels &copy; 2026 - Todos os direitos reservados. Projeto Acadêmico / Profissional.</p>
+        </footer>
+    </div>
+
+    <!-- MODAL DINÂMICO UNIFICADO -->
+    <div id="modal-overlay" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl relative">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white transition">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <div id="modal-content">
+                <!-- Conteúdo injetado via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MENSAGEM / TOAST PERSONALIZADO -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+    <script>
+        // Sistema de Login
+        function handleLogin(e) {
+            e.preventDefault();
+            const user = document.getElementById('username').value;
+            state.isLoggedIn = true;
+            state.currentUser = user;
+            
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+            document.getElementById('user-display').innerText = user;
+
+            renderAll();
+            showToast('Bem-vindo ao sistema da Mecânica Wheels!', 'success');
+        }
+
+        function handleLogout() {
+            state.isLoggedIn = false;
+            state.currentUser = null;
+            document.getElementById('app-container').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('username').value = 'admin';
+            document.getElementById('password').value = '123456';
+            showToast('Sessão encerrada com sucesso.', 'info');
+        }
+
+        // Navegação de Abas
+        function switchTab(tabName) {
+            state.activeTab = tabName;
+            
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.className = "nav-btn px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors";
+            });
+            const activeNav = document.getElementById(`nav-${tabName}`);
+            if(activeNav) {
+                activeNav.className = "nav-btn px-3 py-2 rounded-lg text-sm font-medium bg-blue-600/10 text-blue-400";
+            }
+
+            document.querySelectorAll('.mob-btn').forEach(btn => {
+                btn.className = "mob-btn flex-1 py-2 px-2 text-[11px] font-medium text-center text-slate-400 whitespace-nowrap";
+            });
+            const activeMob = document.getElementById(`mob-${tabName}`);
+            if(activeMob) {
+                activeMob.className = "mob-btn flex-1 py-2 px-2 text-[11px] font-medium text-center text-blue-400 whitespace-nowrap";
+            }
+
+            renderAll();
+        }
+
+        // Renderização Geral
+        function renderAll() {
+            sincronizarAtrasosAutomaticos();
+            renderDashboardStats();
+            renderClientesTable();
+            renderOrcamentosTable();
+            renderVagasGrid();
+            renderFilaEspera();
+            renderHistoricoTable();
+            renderAtrasosTable();
+        }
+
+        function renderDashboardStats() {
+            const clientesAtivosCount = state.clientes.filter(c => c.statusCliente === 'Ativo').length;
+            document.getElementById('stat-clientes').innerText = clientesAtivosCount;
+            document.getElementById('stat-orcamentos').innerText = state.orcamentos.length;
+            
+            const vagasLivres = state.vagas.filter(v => !v.ocupada).length;
+            document.getElementById('stat-vagas').innerText = vagasLivres;
+            document.getElementById('stat-fila').innerText = state.filaEspera.length;
+            document.getElementById('stat-atrasos').innerText = state.atrasos.length;
+        }
+
+        // --- CRUD CLIENTES ATIVOS ---
+        function renderClientesTable() {
+            const tbody = document.getElementById('clientes-tbody');
+            tbody.innerHTML = '';
+            const ativos = state.clientes.filter(c => c.statusCliente === 'Ativo');
+
+            if(ativos.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-500 text-sm">Nenhum cliente ativo no momento.</td></tr>`;
+                return;
+            }
+
+            ativos.forEach(c => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-800/30 transition">
+                        <td class="py-3.5 px-6 font-mono text-slate-400">#${c.id}</td>
+                        <td class="py-3.5 px-6 font-medium text-white">${c.nome}</td>
+                        <td class="py-3.5 px-6 text-slate-300">${c.telefone}</td>
+                        <td class="py-3.5 px-6 text-slate-300">${c.veiculo}</td>
+                        <td class="py-3.5 px-6"><span class="bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-md font-mono text-xs text-blue-400">${c.placa}</span></td>
+                        <td class="py-3.5 px-6"><span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full text-xs font-semibold">Ativo</span></td>
+                        <td class="py-3.5 px-6 text-right space-x-2">
+                            <button onclick="editCliente(${c.id})" class="text-slate-400 hover:text-blue-400 transition p-1.5" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="toggleStatusCliente(${c.id})" class="text-slate-400 hover:text-amber-400 transition p-1.5" title="Mudar para Inativo"><i class="fa-solid fa-user-slash"></i></button>
+                            <button onclick="deleteCliente(${c.id})" class="text-slate-400 hover:text-rose-400 transition p-1.5" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // --- HISTÓRICO & CLIENTES INATIVOS ---
+        function renderHistoricoTable() {
+            const tbody = document.getElementById('historico-tbody');
+            tbody.innerHTML = '';
+            const inativos = state.clientes.filter(c => c.statusCliente === 'Inativo');
+
+            if(inativos.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-500 text-sm">Nenhum cliente inativo no histórico.</td></tr>`;
+                return;
+            }
+
+            inativos.forEach(c => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-800/30 transition">
+                        <td class="py-3.5 px-6 font-mono text-slate-400">#${c.id}</td>
+                        <td class="py-3.5 px-6 font-medium text-slate-300">${c.nome}</td>
+                        <td class="py-3.5 px-6 text-slate-400">${c.telefone}</td>
+                        <td class="py-3.5 px-6 text-slate-400">${c.veiculo}</td>
+                        <td class="py-3.5 px-6"><span class="bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-md font-mono text-xs text-slate-400">${c.placa}</span></td>
+                        <td class="py-3.5 px-6"><span class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-full text-xs font-semibold">Inativo / Histórico</span></td>
+                        <td class="py-3.5 px-6 text-right space-x-2">
+                            <button onclick="toggleStatusCliente(${c.id})" class="text-slate-400 hover:text-emerald-400 transition p-1.5 text-xs bg-slate-800 px-3 py-1 rounded-lg" title="Reativar Cliente">Reativar</button>
+                            <button onclick="deleteCliente(${c.id})" class="text-slate-400 hover:text-rose-400 transition p-1.5" title="Excluir Definitivo"><i class="fa-solid fa-trash-can"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function toggleStatusCliente(id) {
+            const c = state.clientes.find(item => item.id === id);
+            if(c) {
+                c.statusCliente = c.statusCliente === 'Ativo' ? 'Inativo' : 'Ativo';
+                showToast(`Cliente ${c.nome} agora está ${c.statusCliente}!`, 'info');
+                renderAll();
+            }
+        }
+
+        function openModalCliente(id = null) {
+            const isEdit = id !== null;
+            let cliente = { nome: '', telefone: '', veiculo: '', placa: '', statusCliente: 'Ativo' };
+            if(isEdit) {
+                cliente = state.clientes.find(c => c.id === id);
+            }
+
+            document.getElementById('modal-content').innerHTML = `
+                <h3 class="text-lg font-bold text-white mb-4">${isEdit ? 'Editar Cliente' : 'Adicionar Novo Cliente'}</h3>
+                <form onsubmit="saveCliente(event, ${isEdit ? id : 'null'})" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Nome Completo</label>
+                        <input type="text" id="c-nome" required value="${cliente.nome}" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Telefone / WhatsApp</label>
+                        <input type="text" id="c-tel" required value="${cliente.telefone}" placeholder="(11) 98765-4321" oninput="applyPhoneMask(this)" maxlength="15" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Veículo (Modelo)</label>
+                        <input type="text" id="c-veiculo" required value="${cliente.veiculo}" placeholder="Ex: VW Gol" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Placa</label>
+                        <input type="text" id="c-placa" required value="${cliente.placa}" placeholder="ABC-1234" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Status do Cliente</label>
+                        <select id="c-status" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                            <option value="Ativo" ${cliente.statusCliente === 'Ativo' ? 'selected' : ''}>Ativo</option>
+                            <option value="Inativo" ${cliente.statusCliente === 'Inativo' ? 'selected' : ''}>Inativo (Histórico)</option>
+                        </select>
+                    </div>
+                    <div class="flex justify-end space-x-3 pt-2">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium transition">Cancelar</button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition">Salvar Cliente</button>
+                    </div>
+                </form>
+            `;
+            document.getElementById('modal-overlay').classList.remove('hidden');
+            document.getElementById('modal-overlay').classList.add('flex');
+        }
+
+        function saveCliente(e, id) {
+            e.preventDefault();
+            const nome = document.getElementById('c-nome').value;
+            const telefone = document.getElementById('c-tel').value;
+            const veiculo = document.getElementById('c-veiculo').value;
+            const placa = document.getElementById('c-placa').value;
+            const statusCliente = document.getElementById('c-status').value;
+
+            if(id === null) {
+                const newId = state.clientes.length > 0 ? Math.max(...state.clientes.map(c => c.id)) + 1 : 1;
+                state.clientes.push({ id: newId, nome, telefone, veiculo, placa, statusCliente });
+                showToast('Cliente adicionado com sucesso! Redirecionando para a Home.', 'success');
+            } else {
+                const c = state.clientes.find(item => item.id === id);
+                if(c) {
+                    c.nome = nome;
+                    c.telefone = telefone;
+                    c.veiculo = veiculo;
+                    c.placa = placa;
+                    c.statusCliente = statusCliente;
+                }
+                showToast('Cliente atualizado com sucesso!', 'success');
+            }
+
+            closeModal();
+            renderAll();
+            switchTab('dashboard');
+        }
+
+        function editCliente(id) {
+            openModalCliente(id);
+        }
+
+        function deleteCliente(id) {
+            if(confirmCustom("Deseja realmente excluir este cliente do sistema?")) {
+                state.clientes = state.clientes.filter(c => c.id !== id);
+                showToast('Cliente removido.', 'info');
+                renderAll();
+            }
+        }
+
+        // --- CRUD ORÇAMENTOS & PRAZOS ---
+        function renderOrcamentosTable() {
+            const tbody = document.getElementById('orcamentos-tbody');
+            tbody.innerHTML = '';
+            state.orcamentos.forEach(o => {
+                const prazoInfo = calcularStatusPrazo(o.dataLimite);
+                const prazoBadge = prazoInfo.atrasado 
+                    ? `<span class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center w-max"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Atrasado (${prazoInfo.dias}d)</span>`
+                    : `<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center w-max"><i class="fa-solid fa-check mr-1"></i> No Prazo (${prazoInfo.diasRestantes}d)</span>`;
+
+                const prioridadeColor = o.prioridade === 'Urgente' ? 'text-rose-400 font-bold' : (o.prioridade === 'Alta' ? 'text-amber-400 font-semibold' : 'text-slate-300');
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-800/30 transition">
+                        <td class="py-3.5 px-6 font-mono text-slate-400">#${o.id}</td>
+                        <td class="py-3.5 px-6 font-medium text-white">${o.cliente}</td>
+                        <td class="py-3.5 px-6 text-slate-300">${o.servico}</td>
+                        <td class="py-3.5 px-6 font-mono text-emerald-400">R$ ${o.valor.toFixed(2)}</td>
+                        <td class="py-3.5 px-6 text-slate-300 text-xs font-mono">${o.dataLimite ? o.dataLimite.split('-').reverse().join('/') : 'Não def.'}</td>
+                        <td class="py-3.5 px-6">${prazoBadge}</td>
+                        <td class="py-3.5 px-6"><span class="${prioridadeColor} text-xs">${o.prioridade}</span></td>
+                        <td class="py-3.5 px-6 text-right space-x-2">
+                            <button onclick="editOrcamento(${o.id})" class="text-slate-400 hover:text-amber-400 transition p-1.5" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="deleteOrcamento(${o.id})" class="text-slate-400 hover:text-rose-400 transition p-1.5" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function openModalOrcamento(id = null) {
+            const isEdit = id !== null;
+            let orc = { cliente: '', servico: '', valor: 0, status: 'Pendente', dataLimite: '2026-04-15', prioridade: 'Normal' };
+            if(isEdit) {
+                orc = state.orcamentos.find(o => o.id === id);
+            }
+
+            // Apenas clientes ativos podem ter orçamentos para ocupar vagas
+            const clientesAtivos = state.clientes.filter(c => c.statusCliente === 'Ativo');
+            let clienteOptions = clientesAtivos.map(c => `<option value="${c.nome}" ${orc.cliente === c.nome ? 'selected' : ''}>${c.nome} (${c.veiculo})</option>`).join('');
+
+            document.getElementById('modal-content').innerHTML = `
+                <h3 class="text-lg font-bold text-white mb-4">${isEdit ? 'Editar Orçamento & Prazo' : 'Criar Novo Orçamento'}</h3>
+                <p class="text-xs text-slate-400 mb-3">Defina a data limite, prioridade e status do serviço.</p>
+                <form onsubmit="saveOrcamento(event, ${isEdit ? id : 'null'})" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Cliente Ativo</label>
+                        <select id="o-cliente" required class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500">
+                            <option value="">Selecione o cliente ativo...</option>
+                            ${clienteOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Serviço Descrito</label>
+                        <input type="text" id="o-servico" required value="${orc.servico}" placeholder="Ex: Troca de Correia Dentada" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Valor (R$)</label>
+                            <input type="number" step="0.01" id="o-valor" required value="${orc.valor}" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Data Limite / Prazo</label>
+                            <input type="date" id="o-datalimite" required value="${orc.dataLimite}" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Status</label>
+                            <select id="o-status" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500">
+                                <option value="Pendente" ${orc.status === 'Pendente' ? 'selected' : ''}>Pendente</option>
+                                <option value="Aprovado" ${orc.status === 'Aprovado' ? 'selected' : ''}>Aprovado</option>
+                                <option value="Concluído" ${orc.status === 'Concluído' ? 'selected' : ''}>Concluído</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Prioridade</label>
+                            <select id="o-prioridade" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500">
+                                <option value="Baixa" ${orc.prioridade === 'Baixa' ? 'selected' : ''}>Baixa</option>
+                                <option value="Normal" ${orc.prioridade === 'Normal' ? 'selected' : ''}>Normal</option>
+                                <option value="Alta" ${orc.prioridade === 'Alta' ? 'selected' : ''}>Alta</option>
+                                <option value="Urgente" ${orc.prioridade === 'Urgente' ? 'selected' : ''}>Urgente</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex justify-end space-x-3 pt-2">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium transition">Cancelar</button>
+                        <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-sm font-medium transition">Salvar Orçamento</button>
+                    </div>
+                </form>
+            `;
+            document.getElementById('modal-overlay').classList.remove('hidden');
+            document.getElementById('modal-overlay').classList.add('flex');
+        }
+
+        function saveOrcamento(e, id) {
+            e.preventDefault();
+            const cliente = document.getElementById('o-cliente').value;
+            const servico = document.getElementById('o-servico').value;
+            const valor = parseFloat(document.getElementById('o-valor').value);
+            const status = document.getElementById('o-status').value;
+            const dataLimite = document.getElementById('o-datalimite').value;
+            const prioridade = document.getElementById('o-prioridade').value;
+
+            if(id === null) {
+                const newId = state.orcamentos.length > 0 ? Math.max(...state.orcamentos.map(o => o.id)) + 1 : 1;
+                state.orcamentos.push({ id: newId, cliente, servico, valor, status, dataLimite, prioridade });
+                showToast('Orçamento criado com sucesso!', 'success');
+
+                if(status === 'Aprovado') {
+                    verificarEAlocarVagaAutomatica(cliente);
+                }
+            } else {
+                const o = state.orcamentos.find(item => item.id === id);
+                if(o) {
+                    const statusAntigo = o.status;
+                    o.cliente = cliente;
+                    o.servico = servico;
+                    o.valor = valor;
+                    o.status = status;
+                    o.dataLimite = dataLimite;
+                    o.prioridade = prioridade;
+
+                    if((status === 'Aprovado' || status === 'Concluído') && statusAntigo !== 'Aprovado' && statusAntigo !== 'Concluído') {
+                        verificarEAlocarVagaAutomatica(cliente);
+                    }
+                }
+                showToast('Orçamento atualizado com sucesso!', 'success');
+            }
+
+            closeModal();
+            renderAll();
+        }
+
+        function editOrcamento(id) {
+            openModalOrcamento(id);
+        }
+
+        function deleteOrcamento(id) {
+            if(confirmCustom("Deseja realmente excluir este orçamento?")) {
+                state.orcamentos = state.orcamentos.filter(o => o.id !== id);
+                showToast('Orçamento removido.', 'info');
+                renderAll();
+            }
+        }
+
+        // --- CONTROLE DE VAGAS & FILA DE ESPERA ---
+        function renderVagasGrid() {
+            const grid = document.getElementById('vagas-grid');
+            grid.innerHTML = '';
+            state.vagas.forEach(v => {
+                const statusBg = v.ocupada ? 'bg-rose-950/30 border-rose-900/50 text-rose-300' : 'bg-emerald-950/30 border-emerald-900/50 text-emerald-300';
+                const statusDot = v.ocupada ? 'bg-rose-500' : 'bg-emerald-500';
+                const statusText = v.ocupada ? 'Ocupada' : 'Disponível';
+
+                grid.innerHTML += `
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="font-bold text-white text-base">Vaga #${v.vagaId}</span>
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${statusBg}">
+                                    <span class="w-1.5 h-1.5 rounded-full ${statusDot} mr-1.5 animate-pulse"></span>
+                                    ${statusText}
+                                </span>
+                            </div>
+                            <div class="space-y-1 text-xs text-slate-300 my-4">
+                                <p><strong class="text-slate-400">Veículo:</strong> ${v.veiculo}</p>
+                                <p><strong class="text-slate-400">Cliente:</strong> ${v.cliente}</p>
+                            </div>
+                        </div>
+                        <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between">
+                            <button onclick="toggleVagaStatus(${v.vagaId})" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg transition font-medium">
+                                ${v.ocupada ? 'Liberar Vaga' : 'Ocupar Vaga'}
+                            </button>
+                            <button onclick="editVaga(${v.vagaId})" class="text-slate-400 hover:text-blue-400 transition text-xs" title="Editar Detalhes">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function renderFilaEspera() {
+            const tbody = document.getElementById('fila-tbody');
+            tbody.innerHTML = '';
+            document.getElementById('badge-fila-count').innerText = `${state.filaEspera.length} cliente(s) em espera`;
+
+            if(state.filaEspera.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-500 text-sm">Nenhum cliente na fila de espera no momento.</td></tr>`;
+                return;
+            }
+
+            state.filaEspera.forEach((f, index) => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-800/30 transition">
+                        <td class="py-3 px-4 font-mono text-indigo-400 font-bold">#${index + 1}</td>
+                        <td class="py-3 px-4 font-medium text-white">${f.cliente}</td>
+                        <td class="py-3 px-4 text-slate-300">${f.veiculo}</td>
+                        <td class="py-3 px-4 text-slate-400 text-xs">${f.dataCadastro}</td>
+                        <td class="py-3 px-4 text-right">
+                            <button onclick="removerDaFila(${f.id})" class="text-slate-400 hover:text-rose-400 text-xs transition" title="Remover da Fila"><i class="fa-solid fa-xmark"></i> Remover</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function removerDaFila(id) {
+            state.filaEspera = state.filaEspera.filter(f => f.id !== id);
+            showToast('Cliente removido da fila de espera.', 'info');
+            renderAll();
+        }
+
+        function toggleVagaStatus(vagaId) {
+            const v = state.vagas.find(item => item.vagaId === vagaId);
+            if(v) {
+                if(v.ocupada) {
+                    v.ocupada = false;
+                    v.veiculo = '-';
+                    v.cliente = '-';
+                    showToast(`Vaga #${vagaId} liberada. Verificando fila de espera...`, 'info');
+                    processarFilaEspera(); // Preenche automaticamente se houver alguém na fila
+                } else {
+                    v.ocupada = true;
+                    v.veiculo = 'Veículo em Manutenção';
+                    v.cliente = 'Cliente Geral';
+                    showToast(`Vaga #${vagaId} ocupada.`, 'success');
+                }
+                renderAll();
+            }
+        }
+
+        function openModalVaga() {
+            let vagaOptions = state.vagas.map(v => `<option value="${v.vagaId}">Vaga #${v.vagaId} (${v.ocupada ? 'Ocupada: ' + v.veiculo : 'Livre'})</option>`).join('');
+            
+            const clientesAprovadosNomes = [...new Set(state.orcamentos.filter(o => o.status === 'Aprovado' || o.status === 'Concluído').map(o => o.cliente))];
+            
+            let clienteOptions = '';
+            if(clientesAprovadosNomes.length === 0) {
+                clienteOptions = `<option value="">Nenhum cliente ativo com orçamento Aprovado/Concluído</option>`;
+            } else {
+                clienteOptions = clientesAprovadosNomes.map(nomeCli => {
+                    const cliObj = state.clientes.find(c => c.nome === nomeCli && c.statusCliente === 'Ativo');
+                    if(!cliObj) return '';
+                    const veiculoStr = cliObj.veiculo;
+                    return `<option value="${nomeCli}|${veiculoStr}">${nomeCli} - ${veiculoStr}</option>`;
+                }).join('');
+            }
+
+            document.getElementById('modal-content').innerHTML = `
+                <h3 class="text-lg font-bold text-white mb-4">Gerenciar Alocação de Vaga</h3>
+                <p class="text-xs text-slate-400 mb-3">Apenas clientes <strong>Ativos</strong> com orçamentos Aprovados podem ocupar vagas.</p>
+                <form onsubmit="saveVagaAllocation(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Selecione a Vaga (1 a 10)</label>
+                        <select id="v-id" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500">
+                            ${vagaOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Status da Vaga</label>
+                        <select id="v-status" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500">
+                            <option value="ocupada">Ocupada</option>
+                            <option value="livre">Livre</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Vincular Cliente Ativo</label>
+                        <select id="v-cliente-veiculo" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500">
+                            <option value="-|-">Nenhum / Vazio</option>
+                            ${clienteOptions}
+                        </select>
+                    </div>
+                    <div class="flex justify-end space-x-3 pt-2">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium transition">Cancelar</button>
+                        <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition">Atualizar Vaga</button>
+                    </div>
+                </form>
+            `;
+            document.getElementById('modal-overlay').classList.remove('hidden');
+            document.getElementById('modal-overlay').classList.add('flex');
+        }
+
+        function saveVagaAllocation(e) {
+            e.preventDefault();
+            const vagaId = parseInt(document.getElementById('v-id').value);
+            const status = document.getElementById('v-status').value;
+            const cv = document.getElementById('v-cliente-veiculo').value.split('|');
+            
+            const v = state.vagas.find(item => item.vagaId === vagaId);
+            if(v) {
+                if(status === 'ocupada') {
+                    v.ocupada = true;
+                    v.cliente = cv[0] !== '-' ? cv[0] : 'Cliente Geral';
+                    v.veiculo = cv[1] !== '-' ? cv[1] : 'Automóvel';
+                } else {
+                    v.ocupada = false;
+                    v.cliente = '-';
+                    v.veiculo = '-';
+                    processarFilaEspera();
+                }
+                showToast(`Vaga #${vagaId} atualizada com sucesso!`, 'success');
+            }
+            closeModal();
+            renderAll();
+        }
+
+        function editVaga(vagaId) {
+            openModalVaga();
+            document.getElementById('v-id').value = vagaId;
+        }
+
+        // --- CRUD ATRASOS ---
+        function renderAtrasosTable() {
+            const tbody = document.getElementById('atrasos-tbody');
+            tbody.innerHTML = '';
+            
+            if (state.atrasos.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-500 text-sm">Nenhum atraso registrado ou pendente no momento.</td></tr>`;
+                return;
+            }
+
+            state.atrasos.forEach(a => {
+                const priorityColor = a.prioridade === 'Alta' || a.prioridade === 'Urgente' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-800/30 transition">
+                        <td class="py-3.5 px-6 font-mono text-slate-400">#${a.id}</td>
+                        <td class="py-3.5 px-6 font-medium text-white">${a.cliente}</td>
+                        <td class="py-3.5 px-6 text-slate-300">${a.veiculo}</td>
+                        <td class="py-3.5 px-6 text-slate-300">${a.motivo}</td>
+                        <td class="py-3.5 px-6 font-semibold text-rose-400">${a.diasAtraso} dia(s)</td>
+                        <td class="py-3.5 px-6"><span class="border px-2.5 py-1 rounded-full text-xs font-medium ${priorityColor}">${a.prioridade}</span></td>
+                        <td class="py-3.5 px-6 text-right space-x-2">
+                            <button onclick="editAtraso(${a.id})" class="text-slate-400 hover:text-rose-400 transition p-1.5" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="deleteAtraso(${a.id})" class="text-slate-400 hover:text-emerald-400 transition p-1.5" title="Resolver"><i class="fa-solid fa-check"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function openModalAtraso(id = null) {
+            const isEdit = id !== null;
+            let atraso = { cliente: '', veiculo: '', motivo: '', diasAtraso: 1, prioridade: 'Média' };
+            if(isEdit) {
+                atraso = state.atrasos.find(a => a.id === id);
+            }
+
+            const clientesAprovadosNomes = [...new Set(state.orcamentos.filter(o => o.status === 'Aprovado' || o.status === 'Concluído').map(o => o.cliente))];
+            
+            let clienteOptions = '';
+            if(clientesAprovadosNomes.length === 0) {
+                clienteOptions = `<option value="">Nenhum cliente com orçamento Aprovado/Concluído</option>`;
+            } else {
+                clienteOptions = clientesAprovadosNomes.map(nomeCli => {
+                    const cliObj = state.clientes.find(c => c.nome === nomeCli);
+                    const veiculoStr = cliObj ? cliObj.veiculo : 'Veículo';
+                    const fullVal = `${nomeCli}|${veiculoStr}`;
+                    return `<option value="${fullVal}" ${atraso.cliente === nomeCli ? 'selected' : ''}>${nomeCli} - ${veiculoStr}</option>`;
+                }).join('');
+            }
+
+            document.getElementById('modal-content').innerHTML = `
+                <h3 class="text-lg font-bold text-white mb-4">${isEdit ? 'Editar Observação de Atraso' : 'Registrar Observação de Atraso'}</h3>
+                <form onsubmit="saveAtraso(event, ${isEdit ? id : 'null'})" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Cliente & Veículo (Aprovado)</label>
+                        <select id="a-cv" required class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-rose-500">
+                            <option value="">Selecione...</option>
+                            ${clienteOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Motivo / Nota</label>
+                        <input type="text" id="a-motivo" required value="${atraso.motivo}" placeholder="Ex: Esperando peça importada" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-rose-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Dias de Atraso</label>
+                        <input type="number" min="1" id="a-dias" required value="${atraso.diasAtraso}" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-rose-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Prioridade</label>
+                        <select id="a-prioridade" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-rose-500">
+                            <option value="Média" ${atraso.prioridade === 'Média' ? 'selected' : ''}>Média</option>
+                            <option value="Alta" ${atraso.prioridade === 'Alta' ? 'selected' : ''}>Alta</option>
+                            <option value="Urgente" ${atraso.prioridade === 'Urgente' ? 'selected' : ''}>Urgente</option>
+                        </select>
+                    </div>
+                    <div class="flex justify-end space-x-3 pt-2">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium transition">Cancelar</button>
+                        <button type="submit" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition">Salvar Observação</button>
+                    </div>
+                </form>
+            `;
+            document.getElementById('modal-overlay').classList.remove('hidden');
+            document.getElementById('modal-overlay').classList.add('flex');
+        }
+
+        function saveAtraso(e, id) {
+            e.preventDefault();
+            const cv = document.getElementById('a-cv').value.split('|');
+            const cliente = cv[0];
+            const veiculo = cv[1];
+            const motivo = document.getElementById('a-motivo').value;
+            const diasAtraso = parseInt(document.getElementById('a-dias').value);
+            const prioridade = document.getElementById('a-prioridade').value;
+
+            if(id === null) {
+                const newId = state.atrasos.length > 0 ? Math.max(...state.atrasos.map(a => a.id)) + 1 : 1;
+                state.atrasos.push({ id: newId, cliente, veiculo, motivo, diasAtraso, prioridade });
+                showToast('Observação de atraso registrada!', 'success');
+            } else {
+                const a = state.atrasos.find(item => item.id === id);
+                if(a) {
+                    a.cliente = cliente;
+                    a.veiculo = veiculo;
+                    a.motivo = motivo;
+                    a.diasAtraso = diasAtraso;
+                    a.prioridade = prioridade;
+                }
+                showToast('Atraso atualizado com sucesso!', 'success');
+            }
+
+            closeModal();
+            renderAll();
+        }
+
+        function editAtraso(id) {
+            openModalAtraso(id);
+        }
+
+        function deleteAtraso(id) {
+            if(confirmCustom("Deseja marcar este atraso como resolvido?")) {
+                state.atrasos = state.atrasos.filter(a => a.id !== id);
+                showToast('Pendência marcada como resolvida!', 'success');
+                renderAll();
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modal-overlay').classList.remove('flex');
+            document.getElementById('modal-overlay').classList.add('hidden');
+        }
+
+        function applyPhoneMask(input) {
+            let value = input.value.replace(/\D/g, '');
+            if (value.length > 11) value = value.slice(0, 11);
+
+            if (value.length > 10) {
+                value = value.replace(/^(\d{2})(\d{5})(\d{4}).*/, '($1) $2-$3');
+            } else if (value.length > 6) {
+                value = value.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, '($1) $2-$3');
+            } else if (value.length > 2) {
+                value = value.replace(/^(\d{2})(\d{0,5})/, '($1) $2');
+            } else if (value.length > 0) {
+                value = value.replace(/^(\d{0,2})/, '($1');
+            }
+
+            input.value = value;
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bg = 'bg-slate-900 border-slate-700 text-white';
+            let icon = 'fa-circle-info text-blue-400';
+            if(type === 'success') {
+                bg = 'bg-slate-900 border-emerald-500/50 text-white';
+                icon = 'fa-circle-check text-emerald-400';
+            } else if(type === 'warning') {
+                bg = 'bg-slate-900 border-amber-500/50 text-white';
+                icon = 'fa-triangle-exclamation text-amber-400';
+            } else if(type === 'error') {
+                bg = 'bg-slate-900 border-rose-500/50 text-white';
+                icon = 'fa-triangle-exclamation text-rose-400';
+            }
+
+            toast.className = `pointer-events-auto flex items-center space-x-3 px-4 py-3 rounded-xl border shadow-2xl ${bg} transition transform translate-y-2 opacity-0`;
+            toast.innerHTML = `
+                <i class="fa-solid ${icon} text-lg"></i>
+                <span class="text-sm font-medium">${message}</span>
+            `;
+
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function confirmCustom(message) {
+            return window.confirm(message);
+        }
+    </script>
+</body>
+</html>
