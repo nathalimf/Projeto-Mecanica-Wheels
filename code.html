@@ -3,1357 +3,1293 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mecânica Wheels - Sistema de Gestão</title>
+    <title>Mecânica Wheels - Sistema Administrativo e Operacional</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome for Icons -->
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
                         brand: {
-                            dark: '#0f172a',
-                            card: '#1e293b',
-                            accent: '#3b82f6',
-                            danger: '#ef4444',
-                            success: '#22c55e',
-                            warning: '#f59e0b'
+                            dark: '#111111',
+                            card: '#1a1a1a',
+                            border: '#2a2a2a',
+                            red: '#dc2626',
+                            redHover: '#b91c1c'
                         }
                     }
                 }
             }
         }
     </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0f0f0f; color: #e5e7eb; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #dc2626; }
+    </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen flex flex-col">
-
-    <script>
-        // Estado Global da Aplicação
-        const state = {
-            isLoggedIn: false,
-            currentUser: null,
-            activeTab: 'dashboard',
-            // 8 Clientes Iniciais com status de ativo/inativo
-            clientes: [
-                { id: 1, nome: 'Carlos Eduardo', telefone: '(11) 98765-4321', veiculo: 'Volkswagen Gol', placa: 'ABC-1234', statusCliente: 'Ativo' },
-                { id: 2, nome: 'Mariana Souza', telefone: '(11) 97654-3210', veiculo: 'Chevrolet Onix', placa: 'XYZ-5678', statusCliente: 'Ativo' },
-                { id: 3, nome: 'Roberto Carlos', telefone: '(11) 96543-2109', veiculo: 'Fiat Palio', placa: 'DEF-9012', statusCliente: 'Ativo' },
-                { id: 4, nome: 'Ana Paula Lima', telefone: '(11) 95432-1098', veiculo: 'Hyundai HB20', placa: 'GHI-3456', statusCliente: 'Ativo' },
-                { id: 5, nome: 'Lucas Martins', telefone: '(11) 94321-0987', veiculo: 'Ford Ka', placa: 'JKL-7890', statusCliente: 'Ativo' },
-                { id: 6, nome: 'Fernanda Costa', telefone: '(11) 93210-9876', veiculo: 'Toyota Corolla', placa: 'MNO-2345', statusCliente: 'Ativo' },
-                { id: 7, nome: 'Gabriel Santos', telefone: '(11) 92109-8765', veiculo: 'Honda Civic', placa: 'PQR-6789', statusCliente: 'Ativo' },
-                { id: 8, nome: 'Juliana Ribeiro', telefone: '(11) 91098-7654', veiculo: 'Renault Sandero', placa: 'STU-1239', statusCliente: 'Inativo' }
-            ],
-            // Orçamentos Iniciais com Data Limite e Prioridade
-            orcamentos: [
-                { id: 1, cliente: 'Carlos Eduardo', servico: 'Troca de Embreagem', valor: 850.00, status: 'Aprovado', dataLimite: '2026-09-25', prioridade: 'Alta' },
-                { id: 2, cliente: 'Mariana Souza', servico: 'Revisão dos 40.000km', valor: 620.00, status: 'Aprovado', dataLimite: '2026-04-02', prioridade: 'Alta' },
-                { id: 3, cliente: 'Roberto Carlos', servico: 'Troca de Pastilhas de Freio', valor: 350.00, status: 'Aprovado', dataLimite: '2026-04-15', prioridade: 'Normal' }
-            ],
-            // Vagas (Total 10 vagas) - Alocando Carlos, Mariana e Roberto
-            vagas: [
-                { vagaId: 1, ocupada: true, veiculo: 'Volkswagen Gol', cliente: 'Carlos Eduardo' },
-                { vagaId: 2, ocupada: true, veiculo: 'Chevrolet Onix', cliente: 'Mariana Souza' },
-                { vagaId: 3, ocupada: true, veiculo: 'Fiat Palio', cliente: 'Roberto Carlos' },
-                { vagaId: 4, ocupada: false, veiculo: '-', cliente: '-' },
-                { vagaId: 5, ocupada: false, veiculo: '-', cliente: '-' },
-                { vagaId: 6, ocupada: false, veiculo: '-', cliente: '-' },
-                { vagaId: 7, ocupada: false, veiculo: '-', cliente: '-' },
-                { vagaId: 8, ocupada: false, veiculo: '-', cliente: '-' },
-                { vagaId: 9, ocupada: false, veiculo: '-', cliente: '-' },
-                { vagaId: 10, ocupada: false, veiculo: '-', cliente: '-' }
-            ],
-            // Fila de Espera para vagas quando todas estão cheias (ordenada por ordem de cadastro/orçamento)
-            filaEspera: [],
-            // Atrasos / Prioridades (Sincronizado automaticamente)
-            atrasos: []
-        };
-
-        // Função utilitária para verificar prazo com base na data atual (2026-10-05)
-        function calcularStatusPrazo(dataLimiteStr) {
-            if (!dataLimiteStr) return { status: 'Normal', atrasado: false, dias: 0 };
-            const hoje = new Date('2026-10-05');
-            const dataLim = new Date(dataLimiteStr + 'T00:00:00');
-            const diffTime = dataLim - hoje;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            
-            if (diffDays < 0) {
-                return { status: 'Atrasado', atrasado: true, dias: Math.abs(diffDays) };
-            } else {
-                return { status: 'Dentro do Prazo', atrasado: false, diasRestantes: diffDays };
-            }
-        }
-
-        // Função para sincronizar automaticamente orçamentos atrasados com a aba de Atrasos
-        function sincronizarAtrasosAutomaticos() {
-            state.orcamentos.forEach(orc => {
-                const prazo = calcularStatusPrazo(orc.dataLimite);
-                const clienteObj = state.clientes.find(c => c.nome === orc.cliente);
-                const veiculoStr = clienteObj ? clienteObj.veiculo : 'Veículo';
-
-                const existeAtraso = state.atrasos.find(a => a.cliente === orc.cliente && a.motivo.includes(orc.servico));
-
-                if (prazo.atrasado) {
-                    if (!existeAtraso) {
-                        const newId = state.atrasos.length > 0 ? Math.max(...state.atrasos.map(a => a.id)) + 1 : 1;
-                        state.atrasos.push({
-                            id: newId,
-                            cliente: orc.cliente,
-                            veiculo: veiculoStr,
-                            motivo: `Prazo estourado (${orc.servico})`,
-                            diasAtraso: prazo.dias,
-                            prioridade: orc.prioridade
-                        });
-                    } else {
-                        existeAtraso.diasAtraso = prazo.dias;
-                        existeAtraso.prioridade = orc.prioridade;
-                    }
-                } else {
-                    if (existeAtraso) {
-                        state.atrasos = state.atrasos.filter(a => !(a.cliente === orc.cliente && a.motivo.includes(orc.servico)));
-                    }
-                }
-            });
-        }
-
-        // Função para alocar vaga ou colocar na fila de espera com base nas regras de negócio
-        function verificarEAlocarVagaAutomatica(nomeCliente) {
-            const clienteObj = state.clientes.find(c => c.nome === nomeCliente);
-            if (!clienteObj || clienteObj.statusCliente !== 'Ativo') {
-                showToast(`Cliente inativo ou não encontrado. Apenas clientes ATIVOS podem ocupar vagas.`, 'warning');
-                return;
-            }
-
-            const jaTemVaga = state.vagas.some(v => v.ocupada && v.cliente === nomeCliente);
-            if (jaTemVaga) return;
-
-            const jaNaFila = state.filaEspera.some(f => f.cliente === nomeCliente);
-
-            const primeiraVagaLivre = state.vagas.find(v => !v.ocupada);
-            if (primeiraVagaLivre) {
-                primeiraVagaLivre.ocupada = true;
-                primeiraVagaLivre.cliente = clienteObj.nome;
-                primeiraVagaLivre.veiculo = clienteObj.veiculo;
-                showToast(`Vaga #${primeiraVagaLivre.vagaId} ocupada automaticamente para ${nomeCliente}!`, 'success');
-            } else {
-                // Todas as vagas cheias: colocar na fila de espera por ordem de cadastro
-                if (!jaNaFila) {
-                    const newFilaId = state.filaEspera.length > 0 ? Math.max(...state.filaEspera.map(f => f.id)) + 1 : 1;
-                    state.filaEspera.push({
-                        id: newFilaId,
-                        cliente: clienteObj.nome,
-                        veiculo: clienteObj.veiculo,
-                        dataCadastro: new Date().toLocaleDateString('pt-BR')
-                    });
-                    showToast(`Todas as 10 vagas estão ocupadas! ${nomeCliente} foi adicionado à Fila de Espera.`, 'warning');
-                }
-            }
-        }
-
-        // Função para processar a fila de espera automaticamente quando uma vaga é liberada
-        function processarFilaEspera() {
-            const primeiraVagaLivre = state.vagas.find(v => !v.ocupada);
-            if (primeiraVagaLivre && state.filaEspera.length > 0) {
-                const proximoDaFila = state.filaEspera.shift(); // Remove o primeiro da fila (ordem de cadastro)
-                primeiraVagaLivre.ocupada = true;
-                primeiraVagaLivre.cliente = proximoDaFila.cliente;
-                primeiraVagaLivre.veiculo = proximoDaFila.veiculo;
-                showToast(`Vaga #${primeiraVagaLivre.vagaId} preenchida automaticamente pelo cliente em espera: ${proximoDaFila.cliente}!`, 'success');
-            }
-        }
-    </script>
+<body class="min-h-screen flex flex-col antialiased selection:bg-red-600 selection:text-white">
 
     <!-- TELA DE LOGIN -->
-    <div id="login-screen" class="fixed inset-0 bg-slate-950 flex items-center justify-center z-50 p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-8 relative overflow-hidden">
-            <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
-            
+    <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-brand-dark px-4">
+        <div class="max-w-md w-full bg-brand-card border border-brand-border rounded-xl p-8 shadow-2xl relative overflow-hidden">
+            <div class="absolute top-0 left-0 right-0 h-1.5 bg-red-600"></div>
             <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600/10 text-blue-500 rounded-full mb-4 text-2xl shadow-inner">
-                    <i class="fa-solid fa-wrench"></i>
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-600/15 text-red-600 mb-4 text-2xl border border-red-600/30">
+                    <i class="fa-solid fa-screwdriver-wrench"></i>
                 </div>
                 <h1 class="text-2xl font-bold tracking-tight text-white">Mecânica Wheels</h1>
-                <p class="text-sm text-slate-400 mt-1">Painel Administrativo da Oficina</p>
+                <p class="text-sm text-gray-400 mt-1">Sistema de Gestão Automotiva Inteligente</p>
             </div>
 
-            <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+            <form id="login-form" class="space-y-5" onsubmit="handleLogin(event)">
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 uppercase tracking-wider mb-1">Usuário</label>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">E-mail de Acesso</label>
                     <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
-                            <i class="fa-solid fa-user"></i>
-                        </span>
-                        <input type="text" id="username" required placeholder="admin" value="admin"
-                            class="w-full pl-10 pr-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500"><i class="fa-solid fa-envelope"></i></span>
+                        <input type="email" id="login-email" required class="w-full bg-[#121212] border border-brand-border rounded-lg pl-10 pr-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-red-600 transition" placeholder="ex: carlos.adm@mecanicawheels.com">
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 uppercase tracking-wider mb-1">Senha</label>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Senha</label>
                     <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
-                            <i class="fa-solid fa-lock"></i>
-                        </span>
-                        <input type="password" id="password" required placeholder="••••••••" value="123456"
-                            class="w-full pl-10 pr-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500"><i class="fa-solid fa-lock"></i></span>
+                        <input type="password" id="login-password" required class="w-full bg-[#121212] border border-brand-border rounded-lg pl-10 pr-12 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-red-600 transition" placeholder="••••••••">
+                        <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-white transition">
+                            <i id="toggle-pass-icon" class="fa-solid fa-eye"></i>
+                        </button>
                     </div>
                 </div>
 
-                <button type="submit" class="w-full mt-2 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-lg transition-all shadow-lg shadow-blue-600/20 text-sm flex items-center justify-center space-x-2">
+                <div id="login-error" class="hidden text-xs text-red-500 bg-red-950/30 border border-red-900/50 p-3 rounded-lg text-center font-medium"></div>
+
+                <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 rounded-lg transition shadow-lg shadow-red-600/20 flex items-center justify-center gap-2">
                     <span>Entrar no Sistema</span>
-                    <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                    <i class="fa-solid fa-arrow-right text-xs"></i>
                 </button>
             </form>
-
-            <div class="mt-6 text-center text-xs text-slate-500">
-                <p>Equipe: Cinthia, Michelly, Juliana, Erick & Nathali</p>
-            </div>
         </div>
     </div>
 
-    <!-- APLICATIVO PRINCIPAL -->
-    <div id="app-container" class="hidden flex-1 flex flex-col">
-        <!-- Header / Navbar -->
-        <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex items-center justify-between h-16">
-                    <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('dashboard')">
-                        <div class="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-md">
-                            <i class="fa-solid fa-car-side text-lg"></i>
-                        </div>
-                        <div>
-                            <span class="font-bold text-lg tracking-tight text-white">Mecânica Wheels</span>
-                            <span class="block text-[10px] text-blue-400 font-medium uppercase tracking-widest">Gestão Automotiva</span>
-                        </div>
-                    </div>
-
-                    <!-- Navegação Desktop -->
-                    <nav class="hidden md:flex items-center space-x-1">
-                        <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-blue-600/10 text-blue-400">
-                            <i class="fa-solid fa-chart-pie mr-2"></i>Dashboard
-                        </button>
-                        <button onclick="switchTab('clientes')" id="nav-clientes" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
-                            <i class="fa-solid fa-users mr-2"></i>Clientes
-                        </button>
-                        <button onclick="switchTab('orcamentos')" id="nav-orcamentos" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
-                            <i class="fa-solid fa-file-invoice-dollar mr-2"></i>Orçamentos
-                        </button>
-                        <button onclick="switchTab('vagas')" id="nav-vagas" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
-                            <i class="fa-solid fa-square-parking mr-2"></i>Vagas & Fila
-                        </button>
-                        <button onclick="switchTab('historico')" id="nav-historico" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
-                            <i class="fa-solid fa-clock-rotate-left mr-2"></i>Histórico & Inativos
-                        </button>
-                        <button onclick="switchTab('atrasos')" id="nav-atrasos" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
-                            <i class="fa-solid fa-triangle-exclamation mr-2"></i>Atrasos
-                        </button>
-                    </nav>
-
-                    <!-- User Info & Logout -->
-                    <div class="flex items-center space-x-4">
-                        <div class="hidden sm:flex items-center space-x-2 text-sm text-slate-300 bg-slate-800/60 px-3 py-1.5 rounded-full border border-slate-700/50">
-                            <i class="fa-solid fa-user-circle text-blue-400"></i>
-                            <span id="user-display">Admin</span>
-                        </div>
-                        <button onclick="handleLogout()" class="bg-slate-800 hover:bg-red-900/40 text-slate-300 hover:text-red-400 p-2 rounded-lg transition-all border border-slate-700 hover:border-red-500/50" title="Sair do Sistema">
-                            <i class="fa-solid fa-right-from-bracket"></i>
-                        </button>
-                    </div>
+    <!-- APLICAÇÃO PRINCIPAL -->
+    <div id="app-container" class="hidden flex h-screen overflow-hidden">
+        
+        <!-- SIDEBAR -->
+        <aside class="w-64 bg-brand-card border-r border-brand-border flex flex-col z-20 transition-all duration-300">
+            <div class="h-16 flex items-center px-6 border-b border-brand-border gap-3">
+                <div class="w-9 h-9 rounded-lg bg-red-600 flex items-center justify-center text-white font-bold shadow-md shadow-red-600/30">
+                    <i class="fa-solid fa-gear"></i>
+                </div>
+                <div>
+                    <span class="font-bold text-white tracking-wide block leading-tight">Mecânica Wheels</span>
+                    <span class="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Oficina Autorizada</span>
                 </div>
             </div>
-            <!-- Menu mobile bar -->
-            <div class="md:hidden flex border-t border-slate-800 overflow-x-auto px-2 py-1 bg-slate-900/90">
-                <button onclick="switchTab('dashboard')" id="mob-dashboard" class="mob-btn flex-1 py-2 px-2 text-[11px] font-medium text-center text-blue-400 whitespace-nowrap"><i class="fa-solid fa-chart-pie block mb-1"></i>Dash</button>
-                <button onclick="switchTab('clientes')" id="mob-clientes" class="mob-btn flex-1 py-2 px-2 text-[11px] font-medium text-center text-slate-400 whitespace-nowrap"><i class="fa-solid fa-users block mb-1"></i>Clientes</button>
-                <button onclick="switchTab('orcamentos')" id="mob-orcamentos" class="mob-btn flex-1 py-2 px-2 text-[11px] font-medium text-center text-slate-400 whitespace-nowrap"><i class="fa-solid fa-file-invoice block mb-1"></i>Orçamentos</button>
-                <button onclick="switchTab('vagas')" id="mob-vagas" class="mob-btn flex-1 py-2 px-2 text-[11px] font-medium text-center text-slate-400 whitespace-nowrap"><i class="fa-solid fa-square-parking block mb-1"></i>Vagas</button>
-                <button onclick="switchTab('historico')" id="mob-historico" class="mob-btn flex-1 py-2 px-2 text-[11px] font-medium text-center text-slate-400 whitespace-nowrap"><i class="fa-solid fa-clock-rotate-left block mb-1"></i>Histórico</button>
-                <button onclick="switchTab('atrasos')" id="mob-atrasos" class="mob-btn flex-1 py-2 px-2 text-[11px] font-medium text-center text-slate-400 whitespace-nowrap"><i class="fa-solid fa-triangle-exclamation block mb-1"></i>Atrasos</button>
+
+            <nav class="flex-1 px-4 py-4 space-y-1.5 overflow-y-auto">
+                <a href="#" onclick="switchTab('dashboard')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white transition active-tab" data-tab="dashboard">
+                    <i class="fa-solid fa-chart-pie w-5 text-center"></i> Dashboard
+                </a>
+                <a href="#" onclick="switchTab('clientes')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white transition" data-tab="clientes">
+                    <i class="fa-solid fa-users w-5 text-center"></i> Clientes & Veículos
+                </a>
+                <a href="#" onclick="switchTab('historico')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white transition" data-tab="historico">
+                    <i class="fa-solid fa-clock-rotate-left w-5 text-center"></i> Histórico Anteriores
+                </a>
+                <a href="#" onclick="switchTab('orcamentos')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white transition" data-tab="orcamentos">
+                    <i class="fa-solid fa-file-invoice-dollar w-5 text-center"></i> Orçamentos
+                </a>
+                <a href="#" onclick="switchTab('agenda')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white transition" data-tab="agenda">
+                    <i class="fa-solid fa-square-parking w-5 text-center"></i> Vagas & Fila (Até 15/25)
+                </a>
+                <a href="#" onclick="switchTab('servicos')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white transition" data-tab="servicos">
+                    <i class="fa-solid fa-list-check w-5 text-center"></i> Fila de Prioridade
+                </a>
+                <a href="#" onclick="switchTab('estoque')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white transition" data-tab="estoque">
+                    <i class="fa-solid fa-boxes-stacked w-5 text-center"></i> Controle de Estoque
+                </a>
+                <a href="#" onclick="switchTab('pagamentos')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white transition" data-tab="pagamentos">
+                    <i class="fa-solid fa-cash-register w-5 text-center"></i> Caixa & Pagamentos
+                </a>
+                <a href="#" id="menu-admin" onclick="switchTab('usuarios')" class="nav-link hidden flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-400 hover:bg-red-600/10 hover:text-red-300 transition border border-red-900/30 mt-4" data-tab="usuarios">
+                    <i class="fa-solid fa-user-shield w-5 text-center"></i> Gestão de Usuários
+                </a>
+            </nav>
+
+            <div class="p-4 border-t border-brand-border bg-brand-dark/50">
+                <div class="flex items-center justify-between">
+                    <div class="truncate">
+                        <p id="user-display-name" class="text-xs font-bold text-white truncate">Carregando...</p>
+                        <p id="user-display-role" class="text-[10px] text-gray-400 uppercase font-semibold">Perfil: --</p>
+                    </div>
+                    <button onclick="handleLogout()" title="Encerrar Sessão" class="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-white/5 transition">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
             </div>
-        </header>
+        </aside>
 
-        <!-- Main Content Area -->
-        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            
-            <!-- SEÇÃO: DASHBOARD -->
-            <section id="tab-dashboard" class="tab-content space-y-6">
-                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div>
-                        <h2 class="text-2xl font-bold tracking-tight text-white">Dashboard Geral</h2>
-                        <p class="text-sm text-slate-400">Visão consolidada do status da oficina mecânica em tempo real.</p>
+        <!-- CONTEÚDO PRINCIPAL -->
+        <main class="flex-1 flex flex-col overflow-hidden bg-[#0f0f0f]">
+            <header class="h-16 bg-brand-card border-b border-brand-border px-8 flex items-center justify-between z-10">
+                <div class="flex items-center gap-4">
+                    <h2 id="current-page-title" class="text-lg font-bold text-white tracking-wide">Dashboard Operacional</h2>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-950/40 border border-emerald-900/50 text-emerald-400 text-xs font-medium">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>Sistema Ativo</span>
                     </div>
-                    <div class="flex items-center space-x-2">
-                        <button onclick="switchTab('clientes')" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-blue-600/20 flex items-center space-x-2">
-                            <i class="fa-solid fa-user-plus"></i>
-                            <span>Novo Cliente</span>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto p-8 relative">
+                
+                <!-- ABA: DASHBOARD -->
+                <section id="tab-dashboard" class="tab-content space-y-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="bg-brand-card border border-brand-border p-5 rounded-xl shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Total de Clientes</span>
+                                <div class="w-10 h-10 rounded-lg bg-blue-600/15 text-blue-500 flex items-center justify-center"><i class="fa-solid fa-users"></i></div>
+                            </div>
+                            <h3 id="stat-clientes" class="text-2xl font-bold text-white mt-4">0</h3>
+                            <p class="text-xs text-gray-500 mt-1">Cadastrados na oficina</p>
+                        </div>
+                        <div class="bg-brand-card border border-brand-border p-5 rounded-xl shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Vagas Ocupadas</span>
+                                <div class="w-10 h-10 rounded-lg bg-red-600/15 text-red-500 flex items-center justify-center"><i class="fa-solid fa-square-parking"></i></div>
+                            </div>
+                            <h3 id="stat-vagas" class="text-2xl font-bold text-white mt-4">0 / 15</h3>
+                            <p class="text-xs text-gray-500 mt-1">Limite máx. de 15 carros</p>
+                        </div>
+                        <div class="bg-brand-card border border-brand-border p-5 rounded-xl shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Fila de Espera</span>
+                                <div class="w-10 h-10 rounded-lg bg-amber-600/15 text-amber-500 flex items-center justify-center"><i class="fa-solid fa-clock"></i></div>
+                            </div>
+                            <h3 id="stat-fila" class="text-2xl font-bold text-white mt-4">0 / 25</h3>
+                            <p class="text-xs text-gray-500 mt-1">Capacidade máx. de 25</p>
+                        </div>
+                        <div class="bg-brand-card border border-brand-border p-5 rounded-xl shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Caixa Recebido</span>
+                                <div class="w-10 h-10 rounded-lg bg-emerald-600/15 text-emerald-500 flex items-center justify-center"><i class="fa-solid fa-wallet"></i></div>
+                            </div>
+                            <h3 id="stat-caixa" class="text-2xl font-bold text-white mt-4">R$ 0,00</h3>
+                            <p class="text-xs text-gray-500 mt-1">Pagamentos quitados</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ABA: CLIENTES -->
+                <section id="tab-clientes" class="tab-content hidden space-y-6">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-brand-card border border-brand-border p-4 rounded-xl">
+                        <div class="relative flex-1 w-full sm:max-w-md">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500"><i class="fa-solid fa-search"></i></span>
+                            <input type="text" id="search-cliente" oninput="filterClientes()" placeholder="Pesquisar por nome, CPF ou placa..." class="w-full bg-[#121212] border border-brand-border rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-red-600">
+                        </div>
+                        <button onclick="openModalCliente()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-lg shadow-red-600/20">
+                            <i class="fa-solid fa-user-plus"></i> Novo Cliente & Veículo
                         </button>
                     </div>
-                </div>
 
-                <!-- Cards de Métricas -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-                    <!-- Clientes Ativos -->
-                    <div onclick="switchTab('clientes')" class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 cursor-pointer transition shadow-xl group">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Clientes Ativos</p>
-                                <h3 id="stat-clientes" class="text-3xl font-extrabold text-white mt-2 group-hover:text-blue-400 transition">7</h3>
-                            </div>
-                            <div class="w-12 h-12 bg-blue-500/10 text-blue-500 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 transition">
-                                <i class="fa-solid fa-users"></i>
-                            </div>
-                        </div>
-                        <div class="mt-4 flex items-center text-xs text-blue-400 font-medium">
-                            <span>Ver ativos</span>
-                            <i class="fa-solid fa-arrow-right ml-1.5 group-hover:translate-x-1 transition"></i>
+                    <div class="bg-brand-card border border-brand-border rounded-xl overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-brand-border bg-[#151515] text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                                        <th class="p-4">Cliente / CPF</th>
+                                        <th class="p-4">Veículo (Placa)</th>
+                                        <th class="p-4">Entrada / Limite</th>
+                                        <th class="p-4">Prioridade</th>
+                                        <th class="p-4">Status / Local</th>
+                                        <th class="p-4 text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-clientes-body" class="divide-y divide-brand-border text-sm">
+                                    <tr><td colspan="6" class="p-6 text-center text-gray-500">Nenhum cliente cadastrado.</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
+                </section>
 
-                    <!-- Orçamentos -->
-                    <div onclick="switchTab('orcamentos')" class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 cursor-pointer transition shadow-xl group">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Orçamentos</p>
-                                <h3 id="stat-orcamentos" class="text-3xl font-extrabold text-white mt-2 group-hover:text-amber-400 transition">3</h3>
-                            </div>
-                            <div class="w-12 h-12 bg-amber-500/10 text-amber-500 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 transition">
-                                <i class="fa-solid fa-file-invoice-dollar"></i>
-                            </div>
-                        </div>
-                        <div class="mt-4 flex items-center text-xs text-amber-400 font-medium">
-                            <span>Gerenciar propostas</span>
-                            <i class="fa-solid fa-arrow-right ml-1.5 group-hover:translate-x-1 transition"></i>
+                <!-- ABA: HISTÓRICO DE CLIENTES ANTERIORES -->
+                <section id="tab-historico" class="tab-content hidden space-y-6">
+                    <div class="bg-brand-card border border-brand-border p-4 rounded-xl">
+                        <h3 class="text-base font-bold text-white mb-1"><i class="fa-solid fa-clock-rotate-left text-red-600 mr-2"></i> Histórico de Clientes Anteriores (Serviços Resolvidos)</h3>
+                        <p class="text-xs text-gray-400">Veículos cujos problemas foram solucionados. Identificados automaticamente caso retornem à oficina.</p>
+                    </div>
+                    <div class="bg-brand-card border border-brand-border rounded-xl overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-brand-border bg-[#151515] text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                                        <th class="p-4">Cliente / CPF</th>
+                                        <th class="p-4">Veículo / Placa</th>
+                                        <th class="p-4">Serviço Realizado</th>
+                                        <th class="p-4">Data de Conclusão</th>
+                                        <th class="p-4 text-right">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-historico-body" class="divide-y divide-brand-border text-sm">
+                                    <tr><td colspan="5" class="p-6 text-center text-gray-500">Nenhum histórico anterior registrado.</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
+                </section>
 
-                    <!-- Vagas Livres -->
-                    <div onclick="switchTab('vagas')" class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 cursor-pointer transition shadow-xl group">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Vagas Livres (de 10)</p>
-                                <h3 id="stat-vagas" class="text-3xl font-extrabold text-white mt-2 group-hover:text-emerald-400 transition">7</h3>
-                            </div>
-                            <div class="w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 transition">
-                                <i class="fa-solid fa-square-parking"></i>
-                            </div>
-                        </div>
-                        <div class="mt-4 flex items-center text-xs text-emerald-400 font-medium">
-                            <span>Ver vagas & fila</span>
-                            <i class="fa-solid fa-arrow-right ml-1.5 group-hover:translate-x-1 transition"></i>
+                <!-- ABA: ORÇAMENTOS -->
+                <section id="tab-orcamentos" class="tab-content hidden space-y-6">
+                    <div class="bg-brand-card border border-brand-border p-4 rounded-xl">
+                        <h3 class="text-base font-bold text-white">Controle Geral de Orçamentos</h3>
+                    </div>
+                    <div class="bg-brand-card border border-brand-border rounded-xl overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-brand-border bg-[#151515] text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                                        <th class="p-4">Cliente / Veículo</th>
+                                        <th class="p-4">Descrição / Questão</th>
+                                        <th class="p-4">Valor do Orçamento</th>
+                                        <th class="p-4">Responsável (Funcionário)</th>
+                                        <th class="p-4">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-orcamentos-body" class="divide-y divide-brand-border text-sm">
+                                    <tr><td colspan="5" class="p-6 text-center text-gray-500">Nenhum orçamento registrado.</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
+                </section>
 
-                    <!-- Fila de Espera -->
-                    <div onclick="switchTab('vagas')" class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 cursor-pointer transition shadow-xl group">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Fila de Espera</p>
-                                <h3 id="stat-fila" class="text-3xl font-extrabold text-white mt-2 group-hover:text-indigo-400 transition">0</h3>
+                <!-- ABA: VAGAS E FILA -->
+                <section id="tab-agenda" class="tab-content hidden space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-brand-card border border-brand-border rounded-xl p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h4 class="text-sm font-bold text-white uppercase tracking-wider">Vagas na Oficina (<span id="count-vagas">0</span>/15)</h4>
+                                <span class="text-xs text-emerald-400 bg-emerald-950/40 px-2 py-1 rounded border border-emerald-900/40">Até 15 carros</span>
                             </div>
-                            <div class="w-12 h-12 bg-indigo-500/10 text-indigo-500 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 transition">
-                                <i class="fa-solid fa-people-line"></i>
-                            </div>
+                            <div id="list-vagas-container" class="space-y-2"></div>
                         </div>
-                        <div class="mt-4 flex items-center text-xs text-indigo-400 font-medium">
-                            <span>Ver ordem de espera</span>
-                            <i class="fa-solid fa-arrow-right ml-1.5 group-hover:translate-x-1 transition"></i>
+                        <div class="bg-brand-card border border-brand-border rounded-xl p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h4 class="text-sm font-bold text-white uppercase tracking-wider">Fila de Espera (<span id="count-fila">0</span>/25)</h4>
+                                <span class="text-xs text-amber-400 bg-amber-950/40 px-2 py-1 rounded border border-amber-900/40">Até 25 clientes</span>
+                            </div>
+                            <div id="list-fila-container" class="space-y-2"></div>
                         </div>
                     </div>
+                </section>
 
-                    <!-- Atrasos da Mecânica -->
-                    <div onclick="switchTab('atrasos')" class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 cursor-pointer transition shadow-xl group">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Atrasos</p>
-                                <h3 id="stat-atrasos" class="text-3xl font-extrabold text-white mt-2 group-hover:text-rose-400 transition">1</h3>
-                            </div>
-                            <div class="w-12 h-12 bg-rose-500/10 text-rose-500 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 transition">
-                                <i class="fa-solid fa-triangle-exclamation"></i>
-                            </div>
-                        </div>
-                        <div class="mt-4 flex items-center text-xs text-rose-400 font-medium">
-                            <span>Verificar pendências</span>
-                            <i class="fa-solid fa-arrow-right ml-1.5 group-hover:translate-x-1 transition"></i>
+                <!-- ABA: SERVIÇOS -->
+                <section id="tab-servicos" class="tab-content hidden space-y-6">
+                    <div class="bg-brand-card border border-brand-border p-4 rounded-xl">
+                        <h3 class="text-base font-bold text-white">Fila de Serviços e Prioridades (Ordenada de Alta para Baixa)</h3>
+                    </div>
+                    <div class="bg-brand-card border border-brand-border rounded-xl overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-brand-border bg-[#151515] text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                                        <th class="p-4">Cliente / Veículo</th>
+                                        <th class="p-4">Questão</th>
+                                        <th class="p-4">Prioridade / Prazos</th>
+                                        <th class="p-4 text-right">Ação (Resolver)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-servicos-body" class="divide-y divide-brand-border text-sm">
+                                    <tr><td colspan="4" class="p-6 text-center text-gray-500">Nenhum serviço pendente.</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-                </div>
+                </section>
 
-                <!-- Painel Informativo / Atalhos Rápidos -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4">
-                    <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                        <h3 class="text-lg font-bold text-white mb-4 flex items-center">
-                            <i class="fa-solid fa-clipboard-list text-blue-500 mr-2"></i>Regras de Negócio e Gestão de Vagas
-                        </h3>
-                        <p class="text-sm text-slate-300 leading-relaxed mb-4">
-                            O sistema agora valida se o cliente está <strong>Ativo</strong> e possui orçamento aprovado. Caso as 10 vagas estejam cheias, os clientes aprovados entram em uma <strong>Fila de Espera ordenada por ordem de cadastro</strong>, preenchendo as vagas automaticamente assim que houver uma liberação.
-                        </p>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div class="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700/50">
-                                <span class="text-xs text-blue-400 font-semibold block mb-1">CLIENTES INATIVOS</span>
-                                <span class="text-sm text-slate-200">Permanecem guardados com segurança no Histórico do sistema</span>
-                            </div>
-                            <div class="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700/50">
-                                <span class="text-xs text-emerald-400 font-semibold block mb-1">FILA AUTOMÁTICA</span>
-                                <span class="text-sm text-slate-200">Alocação FIFO (First In, First Out) na liberação de vagas</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                <!-- ABA: ESTOQUE -->
+                <section id="tab-estoque" class="tab-content hidden space-y-6">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-brand-card border border-brand-border p-4 rounded-xl">
                         <div>
-                            <h3 class="text-lg font-bold text-white mb-2 flex items-center">
-                                <i class="fa-solid fa-shield-halved text-emerald-500 mr-2"></i>Sessão Ativa
-                            </h3>
-                            <p class="text-sm text-slate-400 mb-4">Você está conectado como administrador do sistema Wheels.</p>
-                            <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700/50 space-y-2 text-xs">
-                                <div class="flex justify-between"><span class="text-slate-400">Status:</span><span class="text-emerald-400 font-semibold">Online</span></div>
-                                <div class="flex justify-between"><span class="text-slate-400">Permissão:</span><span class="text-white font-semibold">Total (CRUD)</span></div>
-                            </div>
+                            <h3 class="text-base font-bold text-white">Controle de Estoque & Leitor de Lote</h3>
+                            <p class="text-xs text-gray-400 mt-0.5">Gerenciamento por código de barras e alerta de estoque baixo</p>
                         </div>
-                        <button onclick="handleLogout()" class="mt-6 w-full bg-slate-800 hover:bg-red-900/30 text-slate-300 hover:text-red-400 py-2.5 rounded-xl text-sm font-medium border border-slate-700 transition flex items-center justify-center space-x-2">
-                            <i class="fa-solid fa-right-from-bracket"></i>
-                            <span>Encerrar Sessão</span>
+                        <div class="flex gap-2 w-full sm:w-auto">
+                            <button onclick="openModalLeitor()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-lg shadow-blue-600/20">
+                                <i class="fa-solid fa-barcode"></i> Simular Leitor de Código (Retirada)
+                            </button>
+                            <button onclick="openModalEstoque()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-lg shadow-red-600/20">
+                                <i class="fa-solid fa-plus"></i> Nova Peça
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-brand-card border border-brand-border rounded-xl overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-brand-border bg-[#151515] text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                                        <th class="p-4">Código / Lote (Barras)</th>
+                                        <th class="p-4">Nome da Peça</th>
+                                        <th class="p-4">Categoria</th>
+                                        <th class="p-4">Quantidade / Mínimo</th>
+                                        <th class="p-4">Status de Estoque</th>
+                                        <th class="p-4 text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-estoque-body" class="divide-y divide-brand-border text-sm"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ABA: PAGAMENTOS E CAIXA -->
+                <section id="tab-pagamentos" class="tab-content hidden space-y-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div class="bg-brand-card border border-brand-border p-5 rounded-xl shadow-sm">
+                            <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Caixa Total Recebido</span>
+                            <h3 id="caixa-recebido" class="text-2xl font-bold text-emerald-500 mt-2">R$ 0,00</h3>
+                        </div>
+                        <div class="bg-brand-card border border-brand-border p-5 rounded-xl shadow-sm">
+                            <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Total Pendentes</span>
+                            <h3 id="caixa-pendente" class="text-2xl font-bold text-amber-500 mt-2">R$ 0,00</h3>
+                        </div>
+                        <div class="bg-brand-card border border-brand-border p-5 rounded-xl shadow-sm">
+                            <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Caixa Total Geral (Projetado)</span>
+                            <h3 id="caixa-geral" class="text-2xl font-bold text-white mt-2">R$ 0,00</h3>
+                        </div>
+                    </div>
+                    <div class="bg-brand-card border border-brand-border rounded-xl overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-brand-border bg-[#151515] text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                                        <th class="p-4">Cliente / Veículo</th>
+                                        <th class="p-4">Serviço / Questão</th>
+                                        <th class="p-4">Valor</th>
+                                        <th class="p-4">Status</th>
+                                        <th class="p-4 text-right">Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-pagamentos-body" class="divide-y divide-brand-border text-sm"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ABA: GESTÃO DE USUÁRIOS -->
+                <section id="tab-usuarios" class="tab-content hidden space-y-6">
+                    <div class="flex justify-between items-center bg-brand-card border border-brand-border p-4 rounded-xl">
+                        <div>
+                            <h3 class="text-base font-bold text-white"><i class="fa-solid fa-user-shield text-red-600 mr-2"></i> Gestão de Usuários e Acessos</h3>
+                            <p class="text-xs text-gray-400 mt-0.5">Cadastre novos administradores ou funcionários para o sistema</p>
+                        </div>
+                        <button onclick="openModalUsuario()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-lg shadow-red-600/20">
+                            <i class="fa-solid fa-user-plus"></i> Novo Usuário
                         </button>
                     </div>
-                </div>
-            </section>
 
-            <!-- SEÇÃO: CLIENTES ATIVOS -->
-            <section id="tab-clientes" class="tab-content hidden space-y-6">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                        <h2 class="text-2xl font-bold tracking-tight text-white">Gestão de Clientes Ativos</h2>
-                        <p class="text-sm text-slate-400">Adicione, edite ou altere o status para inativo. Clientes inativos vão direto para o Histórico.</p>
+                    <div class="bg-brand-card border border-brand-border rounded-xl overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-brand-border bg-[#151515] text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                                        <th class="p-4">Nome / E-mail</th>
+                                        <th class="p-4">Cargo / Perfil</th>
+                                        <th class="p-4 text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-usuarios-body" class="divide-y divide-brand-border text-sm"></tbody>
+                            </table>
+                        </div>
                     </div>
-                    <button onclick="openModalCliente()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition shadow-lg shadow-blue-600/20 flex items-center justify-center space-x-2">
-                        <i class="fa-solid fa-user-plus"></i>
-                        <span>Adicionar Cliente</span>
-                    </button>
-                </div>
+                </section>
 
-                <!-- Tabela de Clientes Ativos -->
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-slate-800/50 border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                                    <th class="py-3.5 px-6">ID</th>
-                                    <th class="py-3.5 px-6">Nome do Cliente</th>
-                                    <th class="py-3.5 px-6">Telefone</th>
-                                    <th class="py-3.5 px-6">Veículo</th>
-                                    <th class="py-3.5 px-6">Placa</th>
-                                    <th class="py-3.5 px-6">Status</th>
-                                    <th class="py-3.5 px-6 text-right">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="clientes-tbody" class="divide-y divide-slate-800/60 text-sm">
-                                <!-- Preenchido dinamicamente via JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
-            <!-- SEÇÃO: ORÇAMENTOS -->
-            <section id="tab-orcamentos" class="tab-content hidden space-y-6">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                        <h2 class="text-2xl font-bold tracking-tight text-white">Controle de Orçamentos & Prazos</h2>
-                        <p class="text-sm text-slate-400">Orçamentos aprovados de clientes ativos ocupam vagas ou entram na fila de espera automaticamente.</p>
-                    </div>
-                    <button onclick="openModalOrcamento()" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition shadow-lg shadow-amber-600/20 flex items-center justify-center space-x-2">
-                        <i class="fa-solid fa-file-circle-plus"></i>
-                        <span>Novo Orçamento</span>
-                    </button>
-                </div>
-
-                <!-- Tabela de Orçamentos -->
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-slate-800/50 border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                                    <th class="py-3.5 px-6">ID</th>
-                                    <th class="py-3.5 px-6">Cliente</th>
-                                    <th class="py-3.5 px-6">Serviço</th>
-                                    <th class="py-3.5 px-6">Valor</th>
-                                    <th class="py-3.5 px-6">Data Limite</th>
-                                    <th class="py-3.5 px-6">Prazo / Status</th>
-                                    <th class="py-3.5 px-6">Prioridade</th>
-                                    <th class="py-3.5 px-6 text-right">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="orcamentos-tbody" class="divide-y divide-slate-800/60 text-sm">
-                                <!-- Preenchido via JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
-            <!-- SEÇÃO: VAGAS & FILA DE ESPERA -->
-            <section id="tab-vagas" class="tab-content hidden space-y-6">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                        <h2 class="text-2xl font-bold tracking-tight text-white">Controle de Vagas & Fila de Espera</h2>
-                        <p class="text-sm text-slate-400">Monitore as 10 vagas e a fila de espera gerida por ordem de cadastro.</p>
-                    </div>
-                    <button onclick="openModalVaga()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition shadow-lg shadow-emerald-600/20 flex items-center justify-center space-x-2">
-                        <i class="fa-solid fa-car"></i>
-                        <span>Alocar / Liberar Vaga</span>
-                    </button>
-                </div>
-
-                <!-- Grid de Vagas -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4" id="vagas-grid">
-                    <!-- Gerado via JS -->
-                </div>
-
-                <!-- Painel da Fila de Espera -->
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mt-8">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-bold text-white flex items-center">
-                            <i class="fa-solid fa-people-line text-indigo-400 mr-2"></i>Fila de Espera para Vagas (Ordem de Cadastro)
-                        </h3>
-                        <span id="badge-fila-count" class="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-3 py-1 rounded-full text-xs font-semibold">0 cliente(s) em espera</span>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-slate-800/50 border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                                    <th class="py-3 px-4">Posição</th>
-                                    <th class="py-3 px-4">Cliente</th>
-                                    <th class="py-3 px-4">Veículo</th>
-                                    <th class="py-3 px-4">Data de Inclusão</th>
-                                    <th class="py-3 px-4 text-right">Ação</th>
-                                </tr>
-                            </thead>
-                            <tbody id="fila-tbody" class="divide-y divide-slate-800/60 text-sm">
-                                <!-- Preenchido via JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
-            <!-- SEÇÃO: HISTÓRICO & CLIENTES INATIVOS -->
-            <section id="tab-historico" class="tab-content hidden space-y-6">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                        <h2 class="text-2xl font-bold tracking-tight text-white">Histórico & Clientes Inativos</h2>
-                        <p class="text-sm text-slate-400">Repositório de clientes desativados e histórico de registros da oficina.</p>
-                    </div>
-                </div>
-
-                <!-- Tabela de Clientes Inativos -->
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-slate-800/50 border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                                    <th class="py-3.5 px-6">ID</th>
-                                    <th class="py-3.5 px-6">Nome do Cliente</th>
-                                    <th class="py-3.5 px-6">Telefone</th>
-                                    <th class="py-3.5 px-6">Veículo</th>
-                                    <th class="py-3.5 px-6">Placa</th>
-                                    <th class="py-3.5 px-6">Status</th>
-                                    <th class="py-3.5 px-6 text-right">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="historico-tbody" class="divide-y divide-slate-800/60 text-sm">
-                                <!-- Preenchido via JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
-            <!-- SEÇÃO: ATRASOS -->
-            <section id="tab-atrasos" class="tab-content hidden space-y-6">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                        <h2 class="text-2xl font-bold tracking-tight text-white">Atrasos & Prioridades da Oficina</h2>
-                        <p class="text-sm text-slate-400">Lista gerada automaticamente com base nos orçamentos que ultrapassaram a data limite.</p>
-                    </div>
-                    <button onclick="openModalAtraso()" class="bg-rose-600 hover:bg-rose-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition shadow-lg shadow-rose-600/20 flex items-center justify-center space-x-2">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span>Adicionar Observação de Atraso</span>
-                    </button>
-                </div>
-
-                <!-- Tabela de Atrasos -->
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-slate-800/50 border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                                    <th class="py-3.5 px-6">ID</th>
-                                    <th class="py-3.5 px-6">Cliente</th>
-                                    <th class="py-3.5 px-6">Veículo</th>
-                                    <th class="py-3.5 px-6">Motivo / Serviço</th>
-                                    <th class="py-3.5 px-6">Dias de Atraso</th>
-                                    <th class="py-3.5 px-6">Prioridade</th>
-                                    <th class="py-3.5 px-6 text-right">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="atrasos-tbody" class="divide-y divide-slate-800/60 text-sm">
-                                <!-- Preenchido via JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
+            </div>
         </main>
-
-        <!-- Footer -->
-        <footer class="bg-slate-900 border-t border-slate-800 py-6 mt-auto text-center text-xs text-slate-500">
-            <p>Mecânica Wheels &copy; 2026 - Todos os direitos reservados. Projeto Acadêmico / Profissional.</p>
-        </footer>
     </div>
 
-    <!-- MODAL DINÂMICO UNIFICADO -->
-    <div id="modal-overlay" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl relative">
-            <button onclick="closeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white transition">
-                <i class="fa-solid fa-xmark text-lg"></i>
-            </button>
-            <div id="modal-content">
-                <!-- Conteúdo injetado via JS -->
-            </div>
-        </div>
-    </div>
-
-    <!-- MENSAGEM / TOAST PERSONALIZADO -->
-    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
-
-    <script>
-        // Sistema de Login
-        function handleLogin(e) {
-            e.preventDefault();
-            const user = document.getElementById('username').value;
-            state.isLoggedIn = true;
-            state.currentUser = user;
-            
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('app-container').classList.remove('hidden');
-            document.getElementById('user-display').innerText = user;
-
-            renderAll();
-            showToast('Bem-vindo ao sistema da Mecânica Wheels!', 'success');
-        }
-
-        function handleLogout() {
-            state.isLoggedIn = false;
-            state.currentUser = null;
-            document.getElementById('app-container').classList.add('hidden');
-            document.getElementById('login-screen').classList.remove('hidden');
-            document.getElementById('username').value = 'admin';
-            document.getElementById('password').value = '123456';
-            showToast('Sessão encerrada com sucesso.', 'info');
-        }
-
-        // Navegação de Abas
-        function switchTab(tabName) {
-            state.activeTab = tabName;
-            
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
-
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                btn.className = "nav-btn px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors";
-            });
-            const activeNav = document.getElementById(`nav-${tabName}`);
-            if(activeNav) {
-                activeNav.className = "nav-btn px-3 py-2 rounded-lg text-sm font-medium bg-blue-600/10 text-blue-400";
-            }
-
-            document.querySelectorAll('.mob-btn').forEach(btn => {
-                btn.className = "mob-btn flex-1 py-2 px-2 text-[11px] font-medium text-center text-slate-400 whitespace-nowrap";
-            });
-            const activeMob = document.getElementById(`mob-${tabName}`);
-            if(activeMob) {
-                activeMob.className = "mob-btn flex-1 py-2 px-2 text-[11px] font-medium text-center text-blue-400 whitespace-nowrap";
-            }
-
-            renderAll();
-        }
-
-        // Renderização Geral
-        function renderAll() {
-            sincronizarAtrasosAutomaticos();
-            renderDashboardStats();
-            renderClientesTable();
-            renderOrcamentosTable();
-            renderVagasGrid();
-            renderFilaEspera();
-            renderHistoricoTable();
-            renderAtrasosTable();
-        }
-
-        function renderDashboardStats() {
-            const clientesAtivosCount = state.clientes.filter(c => c.statusCliente === 'Ativo').length;
-            document.getElementById('stat-clientes').innerText = clientesAtivosCount;
-            document.getElementById('stat-orcamentos').innerText = state.orcamentos.length;
-            
-            const vagasLivres = state.vagas.filter(v => !v.ocupada).length;
-            document.getElementById('stat-vagas').innerText = vagasLivres;
-            document.getElementById('stat-fila').innerText = state.filaEspera.length;
-            document.getElementById('stat-atrasos').innerText = state.atrasos.length;
-        }
-
-        // --- CRUD CLIENTES ATIVOS ---
-        function renderClientesTable() {
-            const tbody = document.getElementById('clientes-tbody');
-            tbody.innerHTML = '';
-            const ativos = state.clientes.filter(c => c.statusCliente === 'Ativo');
-
-            if(ativos.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-500 text-sm">Nenhum cliente ativo no momento.</td></tr>`;
-                return;
-            }
-
-            ativos.forEach(c => {
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-800/30 transition">
-                        <td class="py-3.5 px-6 font-mono text-slate-400">#${c.id}</td>
-                        <td class="py-3.5 px-6 font-medium text-white">${c.nome}</td>
-                        <td class="py-3.5 px-6 text-slate-300">${c.telefone}</td>
-                        <td class="py-3.5 px-6 text-slate-300">${c.veiculo}</td>
-                        <td class="py-3.5 px-6"><span class="bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-md font-mono text-xs text-blue-400">${c.placa}</span></td>
-                        <td class="py-3.5 px-6"><span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full text-xs font-semibold">Ativo</span></td>
-                        <td class="py-3.5 px-6 text-right space-x-2">
-                            <button onclick="editCliente(${c.id})" class="text-slate-400 hover:text-blue-400 transition p-1.5" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
-                            <button onclick="toggleStatusCliente(${c.id})" class="text-slate-400 hover:text-amber-400 transition p-1.5" title="Mudar para Inativo"><i class="fa-solid fa-user-slash"></i></button>
-                            <button onclick="deleteCliente(${c.id})" class="text-slate-400 hover:text-rose-400 transition p-1.5" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        // --- HISTÓRICO & CLIENTES INATIVOS ---
-        function renderHistoricoTable() {
-            const tbody = document.getElementById('historico-tbody');
-            tbody.innerHTML = '';
-            const inativos = state.clientes.filter(c => c.statusCliente === 'Inativo');
-
-            if(inativos.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-500 text-sm">Nenhum cliente inativo no histórico.</td></tr>`;
-                return;
-            }
-
-            inativos.forEach(c => {
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-800/30 transition">
-                        <td class="py-3.5 px-6 font-mono text-slate-400">#${c.id}</td>
-                        <td class="py-3.5 px-6 font-medium text-slate-300">${c.nome}</td>
-                        <td class="py-3.5 px-6 text-slate-400">${c.telefone}</td>
-                        <td class="py-3.5 px-6 text-slate-400">${c.veiculo}</td>
-                        <td class="py-3.5 px-6"><span class="bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-md font-mono text-xs text-slate-400">${c.placa}</span></td>
-                        <td class="py-3.5 px-6"><span class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-full text-xs font-semibold">Inativo / Histórico</span></td>
-                        <td class="py-3.5 px-6 text-right space-x-2">
-                            <button onclick="toggleStatusCliente(${c.id})" class="text-slate-400 hover:text-emerald-400 transition p-1.5 text-xs bg-slate-800 px-3 py-1 rounded-lg" title="Reativar Cliente">Reativar</button>
-                            <button onclick="deleteCliente(${c.id})" class="text-slate-400 hover:text-rose-400 transition p-1.5" title="Excluir Definitivo"><i class="fa-solid fa-trash-can"></i></button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        function toggleStatusCliente(id) {
-            const c = state.clientes.find(item => item.id === id);
-            if(c) {
-                c.statusCliente = c.statusCliente === 'Ativo' ? 'Inativo' : 'Ativo';
-                showToast(`Cliente ${c.nome} agora está ${c.statusCliente}!`, 'info');
-                renderAll();
-            }
-        }
-
-        function openModalCliente(id = null) {
-            const isEdit = id !== null;
-            let cliente = { nome: '', telefone: '', veiculo: '', placa: '', statusCliente: 'Ativo' };
-            if(isEdit) {
-                cliente = state.clientes.find(c => c.id === id);
-            }
-
-            document.getElementById('modal-content').innerHTML = `
-                <h3 class="text-lg font-bold text-white mb-4">${isEdit ? 'Editar Cliente' : 'Adicionar Novo Cliente'}</h3>
-                <form onsubmit="saveCliente(event, ${isEdit ? id : 'null'})" class="space-y-4">
+    <!-- MODAL DE CLIENTE -->
+    <div id="modal-cliente" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/70 px-4">
+        <div class="max-w-lg w-full bg-brand-card border border-brand-border rounded-xl p-6 shadow-2xl">
+            <h3 id="modal-cliente-title" class="text-base font-bold text-white mb-4">Cadastrar Cliente, Veículo e Orçamento</h3>
+            <form id="form-cliente" onsubmit="saveCliente(event)" class="space-y-4">
+                <input type="hidden" id="cli-edit-id" value="">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Nome Completo</label>
+                    <input type="text" id="cli-nome" required class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Nome Completo</label>
-                        <input type="text" id="c-nome" required value="${cliente.nome}" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">CPF</label>
+                        <input type="text" id="cli-cpf" required oninput="maskCPF(this)" maxlength="14" class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="000.000.000-00">
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Telefone / WhatsApp</label>
-                        <input type="text" id="c-tel" required value="${cliente.telefone}" placeholder="(11) 98765-4321" oninput="applyPhoneMask(this)" maxlength="15" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Telefone</label>
+                        <input type="text" id="cli-tel" required oninput="maskPhone(this)" maxlength="15" class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="(11) 90000-0000">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Veículo (Marca/Modelo)</label>
+                        <input type="text" id="cli-modelo" required class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="Ex: VW Gol">
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Veículo (Modelo)</label>
-                        <input type="text" id="c-veiculo" required value="${cliente.veiculo}" placeholder="Ex: VW Gol" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Placa</label>
+                        <input type="text" id="cli-placa" required class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white uppercase" placeholder="ABC-1234">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Data de Entrada</label>
+                        <input type="date" id="cli-data" required class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white">
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Placa</label>
-                        <input type="text" id="c-placa" required value="${cliente.placa}" placeholder="ABC-1234" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Status do Cliente</label>
-                        <select id="c-status" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
-                            <option value="Ativo" ${cliente.statusCliente === 'Ativo' ? 'selected' : ''}>Ativo</option>
-                            <option value="Inativo" ${cliente.statusCliente === 'Inativo' ? 'selected' : ''}>Inativo (Histórico)</option>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Prioridade do Atendimento</label>
+                        <select id="cli-prioridade" class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white">
+                            <option value="Alta">Alta (Prazo: 2 dias)</option>
+                            <option value="Média">Média (Prazo: 5 dias)</option>
+                            <option value="Baixa">Baixa (Prazo: 10 dias)</option>
                         </select>
                     </div>
-                    <div class="flex justify-end space-x-3 pt-2">
-                        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium transition">Cancelar</button>
-                        <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition">Salvar Cliente</button>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Questão / Diagnóstico</label>
+                    <input type="text" id="cli-questao" required class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="Ex: Falha na injeção">
+                </div>
+                <div class="grid grid-cols-2 gap-4 pt-2 border-t border-brand-border">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Orçamento Já Feito?</label>
+                        <select id="cli-orc-feito" onchange="toggleOrcamentoInput(this)" class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white">
+                            <option value="nao">Não (Pendente)</option>
+                            <option value="sim">Sim (Aprovado)</option>
+                        </select>
                     </div>
-                </form>
-            `;
-            document.getElementById('modal-overlay').classList.remove('hidden');
-            document.getElementById('modal-overlay').classList.add('flex');
+                    <div id="div-cli-valor" class="hidden space-y-2">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Valor do Orçamento (R$)</label>
+                            <input type="number" step="0.01" id="cli-valor" class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="0.00">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Funcionário Responsável</label>
+                            <select id="cli-responsavel" class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white"></select>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 pt-4">
+                    <button type="button" onclick="closeModals()" class="bg-white/5 hover:bg-white/10 text-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition">Cancelar</button>
+                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE CADASTRO DE USUÁRIO -->
+    <div id="modal-usuario" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/70 px-4">
+        <div class="max-w-md w-full bg-brand-card border border-brand-border rounded-xl p-6 shadow-2xl">
+            <h3 class="text-base font-bold text-white mb-4"><i class="fa-solid fa-user-plus text-red-600 mr-2"></i> Cadastrar Novo Usuário</h3>
+            <form id="form-usuario" onsubmit="saveUsuario(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Nome Completo</label>
+                    <input type="text" id="usu-nome" required class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="Ex: Marcos Vinicius">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">E-mail de Acesso</label>
+                    <input type="email" id="usu-email" required class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="ex: marcos@mecanicawheels.com">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Senha Provisória</label>
+                    <input type="password" id="usu-senha" required class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="••••••••">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Cargo / Perfil</label>
+                    <select id="usu-role" class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white">
+                        <option value="funcionario">Funcionário (Operacional)</option>
+                        <option value="adm">Administrador (Total)</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-3 pt-4">
+                    <button type="button" onclick="closeModals()" class="bg-white/5 hover:bg-white/10 text-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition">Cancelar</button>
+                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">Cadastrar Usuário</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE CADASTRO/EDIÇÃO DE PEÇA -->
+    <div id="modal-estoque" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/70 px-4">
+        <div class="max-w-md w-full bg-brand-card border border-brand-border rounded-xl p-6 shadow-2xl">
+            <h3 id="modal-estoque-title" class="text-base font-bold text-white mb-4">Cadastrar Peça no Estoque</h3>
+            <form id="form-estoque" onsubmit="savePeca(event)" class="space-y-4">
+                <input type="hidden" id="peca-edit-id" value="">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Código de Barras / Lote</label>
+                    <input type="text" id="peca-codigo" required class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="Ex: 7891029384756">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Nome da Peça</label>
+                    <input type="text" id="peca-nome" required class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="Ex: Pastilha de Freio Dianteira">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Categoria</label>
+                    <input type="text" id="peca-categoria" required class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="Ex: Freios">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Quantidade Atual</label>
+                        <input type="number" id="peca-qtd" required class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="10">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Estoque Mínimo</label>
+                        <input type="number" id="peca-min" required class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="3">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 pt-4">
+                    <button type="button" onclick="closeModals()" class="bg-white/5 hover:bg-white/10 text-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition">Cancelar</button>
+                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">Salvar Peça</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DO LEITOR DE CÓDIGO DE BARRAS / RETIRADA -->
+    <div id="modal-leitor" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/70 px-4">
+        <div class="max-w-md w-full bg-brand-card border border-brand-border rounded-xl p-6 shadow-2xl">
+            <h3 class="text-base font-bold text-white mb-2"><i class="fa-solid fa-barcode text-blue-500 mr-2"></i> Leitor de Código de Barras (Retirada)</h3>
+            <p class="text-xs text-gray-400 mb-4">Passe o item no leitor ou digite o lote/código de barras:</p>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Código de Barras / Lote</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="scan-codigo" class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="Ex: 7891001">
+                        <button type="button" onclick="buscarPecaPorCodigo()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition">Buscar</button>
+                    </div>
+                </div>
+                <div id="scan-resultado" class="hidden border border-brand-border rounded-lg p-4 bg-[#141414] space-y-3">
+                    <div class="border-b border-brand-border pb-2">
+                        <span class="text-[10px] uppercase font-bold text-blue-400">Item Identificado no Sistema:</span>
+                        <h4 id="scan-peca-nome" class="text-sm font-bold text-white mt-0.5">--</h4>
+                        <p id="scan-peca-detalhes" class="text-xs text-gray-400">Categoria: -- | Disp: 0</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Quantidade a Retirar</label>
+                        <input type="number" id="scan-qtd-retirar" value="1" min="1" class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white">
+                    </div>
+                    <div class="flex justify-end gap-2 pt-2">
+                        <button type="button" onclick="cancelarRetirada()" class="bg-white/5 hover:bg-white/10 text-gray-300 px-3 py-2 rounded text-xs">Cancelar</button>
+                        <button type="button" onclick="confirmarRetiradaEstoque()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded text-xs font-bold transition">Confirmar e Subtrair</button>
+                    </div>
+                </div>
+                <div class="flex justify-end pt-2">
+                    <button type="button" onclick="closeModals()" class="bg-white/5 hover:bg-white/10 text-gray-300 px-4 py-2 rounded-lg text-sm transition">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT DO SISTEMA -->
+    <script>
+        function maskCPF(input) {
+            let v = input.value.replace(/\D/g, "");
+            if (v.length > 11) v = v.slice(0, 11);
+            v = v.replace(/(\d{3})(\d)/, "$1.$2");
+            v = v.replace(/(\d{3})(\d)/, "$1.$2");
+            v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+            input.value = v;
         }
 
-        function saveCliente(e, id) {
-            e.preventDefault();
-            const nome = document.getElementById('c-nome').value;
-            const telefone = document.getElementById('c-tel').value;
-            const veiculo = document.getElementById('c-veiculo').value;
-            const placa = document.getElementById('c-placa').value;
-            const statusCliente = document.getElementById('c-status').value;
+        function maskPhone(input) {
+            let v = input.value.replace(/\D/g, "");
+            if (v.length > 11) v = v.slice(0, 11);
+            v = v.replace(/^(\d{2})(\d)/g, "($1) $2");
+            v = v.replace(/(\d{5})(\d{4})$/, "$1-$2");
+            input.value = v;
+        }
 
-            if(id === null) {
-                const newId = state.clientes.length > 0 ? Math.max(...state.clientes.map(c => c.id)) + 1 : 1;
-                state.clientes.push({ id: newId, nome, telefone, veiculo, placa, statusCliente });
-                showToast('Cliente adicionado com sucesso! Redirecionando para a Home.', 'success');
+        function toggleOrcamentoInput(select) {
+            const div = document.getElementById('div-cli-valor');
+            if (select.value === 'sim') {
+                div.classList.remove('hidden');
+                preencherFuncionariosSelect();
             } else {
-                const c = state.clientes.find(item => item.id === id);
-                if(c) {
-                    c.nome = nome;
-                    c.telefone = telefone;
-                    c.veiculo = veiculo;
-                    c.placa = placa;
-                    c.statusCliente = statusCliente;
-                }
-                showToast('Cliente atualizado com sucesso!', 'success');
+                div.classList.add('hidden');
+            }
+        }
+
+        function preencherFuncionariosSelect() {
+            const select = document.getElementById('cli-responsavel');
+            select.innerHTML = appData.usuarios.map(u => `<option value="${u.nome}">${u.nome} (${u.role.toUpperCase()})</option>`).join('');
+        }
+
+        function formatDateBR(dateStr) {
+            if (!dateStr) return '--';
+            if (dateStr.includes('/')) return dateStr;
+            const parts = dateStr.split('-');
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            return dateStr;
+        }
+
+        // FUNÇÃO CORRIGIDA PARA PUXAR A DATA DO SISTEMA EM TEMPO REAL
+        function calcularAtraso(dataLimiteStr) {
+            const hoje = new Date(); // Puxa a data atual do sistema do usuário
+            hoje.setHours(0, 0, 0, 0); // Zera as horas para comparar apenas os dias
+            
+            const partes = dataLimiteStr.split('/');
+            if (partes.length !== 3) return 0;
+            const limite = new Date(partes[2], partes[1] - 1, partes[0]);
+            limite.setHours(0, 0, 0, 0);
+            
+            const diffTime = hoje - limite;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays > 0 ? diffDays : 0;
+        }
+
+        function calcularDataLimite(dataEntradaStr, prioridade) {
+            const partes = dataEntradaStr.includes('/') ? dataEntradaStr.split('/') : dataEntradaStr.split('-');
+            let entrada;
+            if (dataEntradaStr.includes('/')) {
+                entrada = new Date(partes[2], partes[1] - 1, partes[0]);
+            } else {
+                entrada = new Date(partes[0], partes[1] - 1, partes[2]);
             }
 
-            closeModal();
-            renderAll();
+            let diasAdicionais = 5;
+            if (prioridade === 'Alta') diasAdicionais = 2;
+            if (prioridade === 'Baixa') diasAdicionais = 10;
+
+            entrada.setDate(entrada.getDate() + diasAdicionais);
+            const dia = String(entrada.getDate()).padStart(2, '0');
+            const mes = String(entrada.getMonth() + 1).padStart(2, '0');
+            const ano = entrada.getFullYear();
+            return `${dia}/${mes}/${ano}`;
+        }
+
+        let appData = {
+            usuarios: [
+                { id: 1, nome: "Carlos Silva", email: "carlos.adm@mecanicawheels.com", senha: "senha123", role: "adm" },
+                { id: 2, nome: "Ana Souza", email: "ana.func@mecanicawheels.com", senha: "senha123", role: "funcionario" },
+                { id: 3, nome: "Lucas Pereira", email: "lucas.func@mecanicawheels.com", senha: "senha123", role: "funcionario" },
+                { id: 4, nome: "Mariana Costa", email: "mariana.func@mecanicawheels.com", senha: "senha123", role: "funcionario" }
+            ],
+            clientes: [
+                { id: 101, nome: "Roberto Almeida", cpf: "123.456.789-01", telefone: "(11) 98765-4321", modelo: "Fiat Palio", placa: "ABC-1234", questao: "Troca de embreagem", orcamentoFeito: true, valorOrcamento: 450.00, responsavel: "Ana Souza", prioridade: "Alta", status: "Na Vaga", data: "2026-10-10", dataLimite: "12/10/2026" },
+                { id: 102, nome: "Roberto Almeida", cpf: "123.456.789-01", telefone: "(11) 98765-4321", modelo: "Fiat Toro", placa: "TOR-5566", questao: "Revisão de freios", orcamentoFeito: true, valorOrcamento: 600.00, responsavel: "Lucas Pereira", prioridade: "Média", status: "Na Vaga", data: "2026-10-11", dataLimite: "16/10/2026" },
+                { id: 103, nome: "Fernanda Costa", cpf: "234.567.890-12", telefone: "(11) 97654-3210", modelo: "Honda Civic", placa: "XYZ-9876", questao: "Revisão geral dos 50 mil km", orcamentoFeito: true, valorOrcamento: 750.00, responsavel: "Mariana Costa", prioridade: "Média", status: "Na Vaga", data: "2026-10-05", dataLimite: "10/10/2026" },
+                { id: 104, nome: "Marcos Vinicius", cpf: "345.678.901-23", telefone: "(11) 96543-2109", modelo: "Jeep Renegade", placa: "JEP-2024", questao: "Suspensão dianteira batendo", orcamentoFeito: true, valorOrcamento: 890.00, responsavel: "Ana Souza", prioridade: "Alta", status: "Na Vaga", data: "2026-10-12", dataLimite: "14/10/2026" },
+                { id: 105, nome: "Juliana Mendes", cpf: "456.789.012-34", telefone: "(11) 95432-1098", modelo: "Hyundai HB20", placa: "HYU-5544", questao: "Luz de injeção acesa no painel", orcamentoFeito: true, valorOrcamento: 320.00, responsavel: "Lucas Pereira", prioridade: "Média", status: "Na Vaga", data: "2026-10-11", dataLimite: "16/10/2026" }
+            ],
+            historico: [],
+            orcamentos: [
+                { cliente: "Roberto Almeida", veiculo: "Fiat Palio", questao: "Troca de embreagem", valor: 450.00, responsavel: "Ana Souza", status: "Aprovado" },
+                { cliente: "Roberto Almeida", veiculo: "Fiat Toro", questao: "Revisão de freios", valor: 600.00, responsavel: "Lucas Pereira", status: "Aprovado" },
+                { cliente: "Fernanda Costa", veiculo: "Honda Civic", questao: "Revisão geral dos 50 mil km", valor: 750.00, responsavel: "Mariana Costa", status: "Aprovado" },
+                { cliente: "Marcos Vinicius", veiculo: "Jeep Renegade", questao: "Suspensão dianteira batendo", valor: 890.00, responsavel: "Ana Souza", status: "Aprovado" },
+                { cliente: "Juliana Mendes", veiculo: "Hyundai HB20", questao: "Luz de injeção acesa no painel", valor: 320.00, responsavel: "Lucas Pereira", status: "Aprovado" }
+            ],
+            pagamentos: [
+                { id: 1, cliente: "Roberto Almeida", veiculo: "Fiat Palio", questao: "Troca de embreagem", valor: 450.00, status: "Pendente" },
+                { id: 2, cliente: "Roberto Almeida", veiculo: "Fiat Toro", questao: "Revisão de freios", valor: 600.00, status: "Pendente" },
+                { id: 3, cliente: "Fernanda Costa", veiculo: "Honda Civic", questao: "Revisão geral dos 50 mil km", valor: 750.00, status: "Pendente" },
+                { id: 4, cliente: "Marcos Vinicius", veiculo: "Jeep Renegade", questao: "Suspensão dianteira batendo", valor: 890.00, status: "Pendente" },
+                { id: 5, cliente: "Juliana Mendes", veiculo: "Hyundai HB20", questao: "Luz de injeção acesa no painel", valor: 320.00, status: "Pago" }
+            ],
+            estoque: [
+                { id: 1, codigo: "7891001", nome: "Pastilha de Freio Dianteira", categoria: "Freios", qtd: 2, min: 4 },
+                { id: 2, codigo: "7891002", nome: "Óleo Sintético 5W30 (Litro)", categoria: "Lubrificantes", qtd: 25, min: 10 },
+                { id: 3, codigo: "7891003", nome: "Filtro de Óleo Motor", categoria: "Filtros", qtd: 1, min: 3 },
+                { id: 4, codigo: "7891004", nome: "Vela de Ignição Iridium", categoria: "Ignição", qtd: 12, min: 4 },
+                { id: 5, codigo: "7891005", nome: "Correia Dentada Motor 1.6", categoria: "Motor", qtd: 2, min: 2 }
+            ]
+        };
+
+        let currentUser = null;
+        let userRole = 'funcionario';
+        let itemSendoRetirado = null;
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('bg-white/10', 'text-white'));
+            
+            const target = document.getElementById(`tab-${tabId}`);
+            if (target) target.classList.remove('hidden');
+            
+            const link = document.querySelector(`[data-tab="${tabId}"]`);
+            if (link) link.classList.add('bg-white/10', 'text-white');
+
+            const titles = {
+                dashboard: 'Dashboard Operacional',
+                clientes: 'Cadastro de Clientes e Veículos',
+                historico: 'Histórico de Clientes Anteriores',
+                orcamentos: 'Controle Geral de Orçamentos',
+                agenda: 'Controle de Vagas e Fila de Espera',
+                servicos: 'Fila de Serviços e Prioridades',
+                estoque: 'Controle de Estoque de Peças',
+                pagamentos: 'Caixa e Pagamentos',
+                usuarios: 'Gestão de Usuários'
+            };
+            document.getElementById('current-page-title').innerText = titles[tabId] || 'Mecânica Wheels';
+            
+            if (tabId === 'dashboard') updateDashboard();
+            if (tabId === 'clientes') renderClientes();
+            if (tabId === 'historico') renderHistorico();
+            if (tabId === 'orcamentos') renderOrcamentos();
+            if (tabId === 'agenda') renderVagasFila();
+            if (tabId === 'servicos') renderServicos();
+            if (tabId === 'estoque') renderEstoque();
+            if (tabId === 'pagamentos') renderPagamentos();
+            if (tabId === 'usuarios') renderUsuarios();
+        }
+
+        function togglePasswordVisibility() {
+            const pass = document.getElementById('login-password');
+            const icon = document.getElementById('toggle-pass-icon');
+            if (pass.type === 'password') {
+                pass.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                pass.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const err = document.getElementById('login-error');
+            err.classList.add('hidden');
+
+            const found = appData.usuarios.find(u => u.email === email && u.senha === password);
+            if (!found) {
+                err.innerText = "E-mail ou senha incorretos.";
+                err.classList.remove('hidden');
+                return;
+            }
+
+            currentUser = found;
+            userRole = found.role;
+            initAppSession();
+        }
+
+        function initAppSession() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+            document.getElementById('user-display-name').innerText = currentUser.nome;
+            document.getElementById('user-display-role').innerText = `Perfil: ${userRole.toUpperCase()}`;
+
+            if (userRole === 'adm') {
+                document.getElementById('menu-admin').classList.remove('hidden');
+            } else {
+                document.getElementById('menu-admin').classList.add('hidden');
+            }
             switchTab('dashboard');
         }
 
+        function handleLogout() {
+            currentUser = null;
+            document.getElementById('app-container').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('login-form').reset();
+        }
+
+        function openModalUsuario() {
+            document.getElementById('form-usuario').reset();
+            document.getElementById('modal-usuario').classList.remove('hidden');
+        }
+
+        function saveUsuario(e) {
+            e.preventDefault();
+            const nome = document.getElementById('usu-nome').value;
+            const email = document.getElementById('usu-email').value;
+            const senha = document.getElementById('usu-senha').value;
+            const role = document.getElementById('usu-role').value;
+
+            if (appData.usuarios.some(u => u.email === email)) {
+                alert('Já existe um usuário cadastrado com este e-mail!');
+                return;
+            }
+
+            appData.usuarios.push({ id: Date.now(), nome, email, senha, role });
+            alert(`Usuário ${nome} (${role.toUpperCase()}) cadastrado com sucesso!`);
+            closeModals();
+            renderUsuarios();
+        }
+
+        function deleteUsuario(id) {
+            if (appData.usuarios.length <= 1) {
+                alert('Você não pode excluir o último usuário do sistema!');
+                return;
+            }
+            const u = appData.usuarios.find(item => item.id === id);
+            if (u && u.email === currentUser.email) {
+                alert('Você não pode excluir sua própria conta enquanto está logado!');
+                return;
+            }
+            if (confirm('Tem certeza que deseja remover este usuário?')) {
+                appData.usuarios = appData.usuarios.filter(item => item.id !== id);
+                renderUsuarios();
+            }
+        }
+
+        function renderUsuarios() {
+            const tbody = document.getElementById('table-usuarios-body');
+            tbody.innerHTML = appData.usuarios.map(u => `
+                <tr class="hover:bg-white/5 transition">
+                    <td class="p-4"><span class="font-bold text-white block">${u.nome}</span><span class="text-xs text-gray-400">${u.email}</span></td>
+                    <td class="p-4"><span class="text-xs uppercase font-semibold px-2 py-1 rounded ${u.role === 'adm' ? 'bg-red-950 text-red-400 border border-red-900' : 'bg-blue-950 text-blue-400 border border-blue-900'}">${u.role}</span></td>
+                    <td class="p-4 text-right">
+                        <button onclick="deleteUsuario(${u.id})" class="text-gray-500 hover:text-red-500 transition" title="Excluir Usuário"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openModalCliente() {
+            document.getElementById('cli-edit-id').value = "";
+            document.getElementById('modal-cliente-title').innerText = "Cadastrar Cliente, Veículo e Orçamento";
+            document.getElementById('form-cliente').reset();
+            // Define a data atual padrão no formulário em formato YYYY-MM-DD
+            const hojeIso = new Date().toISOString().split('T')[0];
+            document.getElementById('cli-data').value = hojeIso;
+            document.getElementById('div-cli-valor').classList.add('hidden');
+            document.getElementById('modal-cliente').classList.remove('hidden');
+        }
+
+        function openModalEstoque() {
+            document.getElementById('peca-edit-id').value = "";
+            document.getElementById('modal-estoque-title').innerText = "Cadastrar Peça no Estoque";
+            document.getElementById('form-estoque').reset();
+            document.getElementById('modal-estoque').classList.remove('hidden');
+        }
+
+        function openModalLeitor() {
+            document.getElementById('scan-codigo').value = "";
+            document.getElementById('scan-resultado').classList.add('hidden');
+            itemSendoRetirado = null;
+            document.getElementById('modal-leitor').classList.remove('hidden');
+        }
+
+        function closeModals() { document.querySelectorAll('.fixed').forEach(el => el.classList.add('hidden')); }
+
+        function savePeca(e) {
+            e.preventDefault();
+            const editId = document.getElementById('peca-edit-id').value;
+            const codigo = document.getElementById('peca-codigo').value;
+            const nome = document.getElementById('peca-nome').value;
+            const categoria = document.getElementById('peca-categoria').value;
+            const qtd = parseInt(document.getElementById('peca-qtd').value) || 0;
+            const min = parseInt(document.getElementById('peca-min').value) || 0;
+
+            if (editId) {
+                const p = appData.estoque.find(item => item.id == editId);
+                if (p) {
+                    p.codigo = codigo;
+                    p.nome = nome;
+                    p.categoria = categoria;
+                    p.qtd = qtd;
+                    p.min = min;
+                    alert('Peça atualizada com sucesso!');
+                }
+            } else {
+                appData.estoque.push({ id: Date.now(), codigo, nome, categoria, qtd, min });
+                alert('Peça cadastrada com sucesso!');
+            }
+            closeModals();
+            renderEstoque();
+        }
+
+        function buscarPecaPorCodigo() {
+            const cod = document.getElementById('scan-codigo').value.trim();
+            const peca = appData.estoque.find(p => p.codigo === cod);
+            if (!peca) {
+                alert('Código de barras / Lote não encontrado!');
+                document.getElementById('scan-resultado').classList.add('hidden');
+                return;
+            }
+            itemSendoRetirado = peca;
+            document.getElementById('scan-peca-nome').innerText = peca.nome;
+            document.getElementById('scan-peca-detalhes').innerText = `Categoria: ${peca.categoria} | Disp: ${peca.qtd}`;
+            document.getElementById('scan-qtd-retirar').value = 1;
+            document.getElementById('scan-resultado').classList.remove('hidden');
+        }
+
+        function cancelarRetirada() {
+            document.getElementById('scan-resultado').classList.add('hidden');
+            document.getElementById('scan-codigo').value = "";
+            itemSendoRetirado = null;
+        }
+
+        function confirmarRetiradaEstoque() {
+            if (!itemSendoRetirado) return;
+            const qtdRetirar = parseInt(document.getElementById('scan-qtd-retirar').value) || 1;
+            if (qtdRetirar > itemSendoRetirado.qtd) {
+                alert('Quantidade superior ao estoque disponível!');
+                return;
+            }
+            itemSendoRetirado.qtd -= qtdRetirar;
+            alert(`Retirada confirmada! ${qtdRetirar} unidade(s) de "${itemSendoRetirado.nome}" subtraída(s).`);
+            closeModals();
+            renderEstoque();
+        }
+
+        function renderEstoque() {
+            const tbody = document.getElementById('table-estoque-body');
+            tbody.innerHTML = appData.estoque.length ? appData.estoque.map(p => {
+                const baixo = p.qtd <= p.min;
+                return `
+                    <tr class="hover:bg-white/5 transition">
+                        <td class="p-4 font-mono text-xs text-blue-400 font-bold">${p.codigo}</td>
+                        <td class="p-4 font-bold text-white">${p.nome}</td>
+                        <td class="p-4 text-xs text-gray-300">${p.categoria}</td>
+                        <td class="p-4 text-sm text-white">${p.qtd} <span class="text-xs text-gray-500">(Mín: ${p.min})</span></td>
+                        <td class="p-4">
+                            <span class="px-2.5 py-1 rounded text-xs font-semibold ${baixo ? 'bg-red-950 text-red-400 border border-red-900 animate-pulse' : 'bg-emerald-950 text-emerald-400 border border-emerald-900'}">
+                                ${baixo ? '⚠️ ESTOQUE BAIXO' : 'Regular'}
+                            </span>
+                        </td>
+                        <td class="p-4 text-right">
+                            <button onclick="editPeca(${p.id})" class="text-gray-400 hover:text-white transition" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                        </td>
+                    </tr>
+                `;
+            }).join('') : `<tr><td colspan="6" class="p-6 text-center text-gray-500">Nenhuma peça cadastrada.</td></tr>`;
+        }
+
+        function editPeca(id) {
+            const p = appData.estoque.find(item => item.id === id);
+            if (!p) return;
+            document.getElementById('peca-edit-id').value = p.id;
+            document.getElementById('modal-estoque-title').innerText = "Editar Peça";
+            document.getElementById('peca-codigo').value = p.codigo;
+            document.getElementById('peca-nome').value = p.nome;
+            document.getElementById('peca-categoria').value = p.categoria;
+            document.getElementById('peca-qtd').value = p.qtd;
+            document.getElementById('peca-min').value = p.min;
+            document.getElementById('modal-estoque').classList.remove('hidden');
+        }
+
         function editCliente(id) {
-            openModalCliente(id);
+            const c = appData.clientes.find(item => item.id === id);
+            if (!c) return;
+            document.getElementById('cli-edit-id').value = c.id;
+            document.getElementById('modal-cliente-title').innerText = "Editar Informações do Veículo/Cliente";
+            document.getElementById('cli-nome').value = c.nome;
+            document.getElementById('cli-cpf').value = c.cpf;
+            document.getElementById('cli-tel').value = c.telefone;
+            document.getElementById('cli-modelo').value = c.modelo;
+            document.getElementById('cli-placa').value = c.placa;
+            document.getElementById('cli-data').value = c.data;
+            document.getElementById('cli-questao').value = c.questao;
+            document.getElementById('cli-prioridade').value = c.prioridade;
+            const orcSelect = document.getElementById('cli-orc-feito');
+            orcSelect.value = c.orcamentoFeito ? "sim" : "nao";
+            toggleOrcamentoInput(orcSelect);
+            if (c.orcamentoFeito) {
+                document.getElementById('cli-valor').value = c.valorOrcamento;
+                document.getElementById('cli-responsavel').value = c.responsavel || currentUser.nome;
+            }
+            document.getElementById('modal-cliente').classList.remove('hidden');
+        }
+
+        function saveCliente(e) {
+            e.preventDefault();
+            const editId = document.getElementById('cli-edit-id').value;
+            const cpfInput = document.getElementById('cli-cpf').value;
+            const placaInput = document.getElementById('cli-placa').value.toUpperCase();
+            const dataEntrada = document.getElementById('cli-data').value;
+            const prioridade = document.getElementById('cli-prioridade').value;
+            const orcFeito = document.getElementById('cli-orc-feito').value === 'sim';
+            const valorOrc = parseFloat(document.getElementById('cli-valor').value) || 0;
+            const responsavelOrc = document.getElementById('cli-responsavel').value || currentUser.nome;
+            const dataLimiteCalc = calcularDataLimite(dataEntrada, prioridade);
+
+            if (editId) {
+                const cli = appData.clientes.find(item => item.id == editId);
+                if (cli) {
+                    cli.nome = document.getElementById('cli-nome').value;
+                    cli.cpf = cpfInput;
+                    cli.telefone = document.getElementById('cli-tel').value;
+                    cli.modelo = document.getElementById('cli-modelo').value;
+                    cli.placa = placaInput;
+                    cli.data = dataEntrada;
+                    cli.prioridade = prioridade;
+                    cli.dataLimite = dataLimiteCalc;
+                    cli.questao = document.getElementById('cli-questao').value;
+                    cli.orcamentoFeito = orcFeito;
+                    cli.valorOrcamento = valorOrc;
+                    cli.responsavel = responsavelOrc;
+
+                    if (!orcFeito) {
+                        cli.status = 'Fila de Espera';
+                    } else {
+                        const vagasOcupadasCount = appData.clientes.filter(c => c.status === 'Na Vaga' && c.id !== cli.id).length;
+                        if (vagasOcupadasCount < 15) {
+                            cli.status = 'Na Vaga';
+                        }
+                    }
+                    alert('Registro atualizado com sucesso!');
+                }
+            } else {
+                const historicoEncontrado = appData.historico.find(h => h.cpf === cpfInput || h.placa === placaInput);
+                if (historicoEncontrado) {
+                    alert(`⚠️ Cliente Recorrente Identificado!\n\nO cliente ${historicoEncontrado.nome} (Veículo: ${historicoEncontrado.modelo} - Placa: ${historicoEncontrado.placa}) possui serviços anteriores registrados no Histórico em ${historicoEncontrado.dataConclusao}.`);
+                }
+
+                let statusInicial = 'Na Vaga';
+                if (!orcFeito) {
+                    statusInicial = 'Fila de Espera';
+                    alert('Orçamento pendente: veículo alocado obrigatoriamente na Fila de Espera.');
+                } else {
+                    const vagasOcupadasCount = appData.clientes.filter(c => c.status === 'Na Vaga').length;
+                    if (vagasOcupadasCount >= 15) {
+                        statusInicial = 'Fila de Espera';
+                        alert('Vagas cheias (15/15). Veículo alocado na Fila de Espera.');
+                    } else {
+                        alert('Veículo cadastrado e vaga ocupada!');
+                    }
+                }
+
+                const novoCliente = {
+                    id: Date.now(),
+                    nome: document.getElementById('cli-nome').value,
+                    cpf: cpfInput,
+                    telefone: document.getElementById('cli-tel').value,
+                    modelo: document.getElementById('cli-modelo').value,
+                    placa: placaInput,
+                    questao: document.getElementById('cli-questao').value,
+                    orcamentoFeito: orcFeito,
+                    valorOrcamento: valorOrc,
+                    responsavel: responsavelOrc,
+                    prioridade: prioridade,
+                    status: statusInicial,
+                    data: dataEntrada,
+                    dataLimite: dataLimiteCalc
+                };
+                appData.clientes.push(novoCliente);
+                if (orcFeito) {
+                    appData.orcamentos.push({ cliente: novoCliente.nome, veiculo: `${novoCliente.modelo} (${novoCliente.placa})`, questao: novoCliente.questao, valor: valorOrc, responsavel: responsavelOrc, status: 'Aprovado' });
+                    appData.pagamentos.push({ id: Date.now(), cliente: novoCliente.nome, veiculo: `${novoCliente.modelo} (${novoCliente.placa})`, questao: novoCliente.questao, valor: valorOrc, status: 'Pendente' });
+                }
+            }
+            closeModals();
+            renderClientes();
+            updateDashboard();
+        }
+
+        function alterarPrioridade(id, novaPrioridade) {
+            const cliente = appData.clientes.find(c => c.id === id);
+            if (cliente) {
+                cliente.prioridade = novaPrioridade;
+                cliente.dataLimite = calcularDataLimite(cliente.data, novaPrioridade);
+                renderClientes();
+                renderServicos();
+            }
+        }
+
+        function filterClientes() {
+            renderClientes();
+        }
+
+        function renderClientes() {
+            const tbody = document.getElementById('table-clientes-body');
+            const search = document.getElementById('search-cliente').value.toLowerCase();
+            const filtered = appData.clientes.filter(c => c.nome.toLowerCase().includes(search) || c.cpf.includes(search) || c.placa.toLowerCase().includes(search) || c.modelo.toLowerCase().includes(search));
+
+            tbody.innerHTML = filtered.length ? filtered.map(c => {
+                const diasAtraso = calcularAtraso(c.dataLimite);
+                return `
+                    <tr class="hover:bg-white/5 transition">
+                        <td class="p-4"><span class="font-bold text-white block">${c.nome}</span><span class="text-xs text-gray-400">CPF: ${c.cpf}</span></td>
+                        <td class="p-4"><span class="text-white font-medium">${c.modelo}</span><span class="block text-xs text-red-500 uppercase font-bold">${c.placa}</span></td>
+                        <td class="p-4">
+                            <span class="text-xs text-gray-300 block">Entrada: ${formatDateBR(c.data)}</span>
+                            <span class="text-xs ${diasAtraso > 0 ? 'text-red-400 font-bold' : 'text-emerald-400'}">Limite: ${c.dataLimite}</span>
+                        </td>
+                        <td class="p-4">
+                            <select onchange="alterarPrioridade(${c.id}, this.value)" class="bg-[#121212] border border-brand-border rounded px-2 py-1 text-xs text-white">
+                                <option value="Alta" ${c.prioridade === 'Alta' ? 'selected' : ''}>Alta</option>
+                                <option value="Média" ${c.prioridade === 'Média' ? 'selected' : ''}>Média</option>
+                                <option value="Baixa" ${c.prioridade === 'Baixa' ? 'selected' : ''}>Baixa</option>
+                            </select>
+                        </td>
+                        <td class="p-4"><span class="px-2 py-1 rounded text-xs font-semibold ${c.status === 'Na Vaga' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900' : 'bg-amber-950 text-amber-400 border border-amber-900'}">${c.status}</span></td>
+                        <td class="p-4 text-right space-x-2">
+                            <button onclick="editCliente(${c.id})" class="text-gray-400 hover:text-white transition" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="deleteCliente(${c.id})" class="text-gray-500 hover:text-red-500 transition" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            }).join('') : `<tr><td colspan="6" class="p-6 text-center text-gray-500">Nenhum veículo encontrado.</td></tr>`;
         }
 
         function deleteCliente(id) {
-            if(confirmCustom("Deseja realmente excluir este cliente do sistema?")) {
-                state.clientes = state.clientes.filter(c => c.id !== id);
-                showToast('Cliente removido.', 'info');
-                renderAll();
-            }
+            appData.clientes = appData.clientes.filter(c => c.id !== id);
+            verificarRealocacaoFila();
+            renderClientes();
+            updateDashboard();
         }
 
-        // --- CRUD ORÇAMENTOS & PRAZOS ---
-        function renderOrcamentosTable() {
-            const tbody = document.getElementById('orcamentos-tbody');
-            tbody.innerHTML = '';
-            state.orcamentos.forEach(o => {
-                const prazoInfo = calcularStatusPrazo(o.dataLimite);
-                const prazoBadge = prazoInfo.atrasado 
-                    ? `<span class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center w-max"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Atrasado (${prazoInfo.dias}d)</span>`
-                    : `<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center w-max"><i class="fa-solid fa-check mr-1"></i> No Prazo (${prazoInfo.diasRestantes}d)</span>`;
-
-                const prioridadeColor = o.prioridade === 'Urgente' ? 'text-rose-400 font-bold' : (o.prioridade === 'Alta' ? 'text-amber-400 font-semibold' : 'text-slate-300');
-
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-800/30 transition">
-                        <td class="py-3.5 px-6 font-mono text-slate-400">#${o.id}</td>
-                        <td class="py-3.5 px-6 font-medium text-white">${o.cliente}</td>
-                        <td class="py-3.5 px-6 text-slate-300">${o.servico}</td>
-                        <td class="py-3.5 px-6 font-mono text-emerald-400">R$ ${o.valor.toFixed(2)}</td>
-                        <td class="py-3.5 px-6 text-slate-300 text-xs font-mono">${o.dataLimite ? o.dataLimite.split('-').reverse().join('/') : 'Não def.'}</td>
-                        <td class="py-3.5 px-6">${prazoBadge}</td>
-                        <td class="py-3.5 px-6"><span class="${prioridadeColor} text-xs">${o.prioridade}</span></td>
-                        <td class="py-3.5 px-6 text-right space-x-2">
-                            <button onclick="editOrcamento(${o.id})" class="text-slate-400 hover:text-amber-400 transition p-1.5" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
-                            <button onclick="deleteOrcamento(${o.id})" class="text-slate-400 hover:text-rose-400 transition p-1.5" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        function openModalOrcamento(id = null) {
-            const isEdit = id !== null;
-            let orc = { cliente: '', servico: '', valor: 0, status: 'Pendente', dataLimite: '2026-04-15', prioridade: 'Normal' };
-            if(isEdit) {
-                orc = state.orcamentos.find(o => o.id === id);
-            }
-
-            // Apenas clientes ativos podem ter orçamentos para ocupar vagas
-            const clientesAtivos = state.clientes.filter(c => c.statusCliente === 'Ativo');
-            let clienteOptions = clientesAtivos.map(c => `<option value="${c.nome}" ${orc.cliente === c.nome ? 'selected' : ''}>${c.nome} (${c.veiculo})</option>`).join('');
-
-            document.getElementById('modal-content').innerHTML = `
-                <h3 class="text-lg font-bold text-white mb-4">${isEdit ? 'Editar Orçamento & Prazo' : 'Criar Novo Orçamento'}</h3>
-                <p class="text-xs text-slate-400 mb-3">Defina a data limite, prioridade e status do serviço.</p>
-                <form onsubmit="saveOrcamento(event, ${isEdit ? id : 'null'})" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Cliente Ativo</label>
-                        <select id="o-cliente" required class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500">
-                            <option value="">Selecione o cliente ativo...</option>
-                            ${clienteOptions}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Serviço Descrito</label>
-                        <input type="text" id="o-servico" required value="${orc.servico}" placeholder="Ex: Troca de Correia Dentada" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500">
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Valor (R$)</label>
-                            <input type="number" step="0.01" id="o-valor" required value="${orc.valor}" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Data Limite / Prazo</label>
-                            <input type="date" id="o-datalimite" required value="${orc.dataLimite}" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500">
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Status</label>
-                            <select id="o-status" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500">
-                                <option value="Pendente" ${orc.status === 'Pendente' ? 'selected' : ''}>Pendente</option>
-                                <option value="Aprovado" ${orc.status === 'Aprovado' ? 'selected' : ''}>Aprovado</option>
-                                <option value="Concluído" ${orc.status === 'Concluído' ? 'selected' : ''}>Concluído</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Prioridade</label>
-                            <select id="o-prioridade" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500">
-                                <option value="Baixa" ${orc.prioridade === 'Baixa' ? 'selected' : ''}>Baixa</option>
-                                <option value="Normal" ${orc.prioridade === 'Normal' ? 'selected' : ''}>Normal</option>
-                                <option value="Alta" ${orc.prioridade === 'Alta' ? 'selected' : ''}>Alta</option>
-                                <option value="Urgente" ${orc.prioridade === 'Urgente' ? 'selected' : ''}>Urgente</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="flex justify-end space-x-3 pt-2">
-                        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium transition">Cancelar</button>
-                        <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-sm font-medium transition">Salvar Orçamento</button>
-                    </div>
-                </form>
-            `;
-            document.getElementById('modal-overlay').classList.remove('hidden');
-            document.getElementById('modal-overlay').classList.add('flex');
-        }
-
-        function saveOrcamento(e, id) {
-            e.preventDefault();
-            const cliente = document.getElementById('o-cliente').value;
-            const servico = document.getElementById('o-servico').value;
-            const valor = parseFloat(document.getElementById('o-valor').value);
-            const status = document.getElementById('o-status').value;
-            const dataLimite = document.getElementById('o-datalimite').value;
-            const prioridade = document.getElementById('o-prioridade').value;
-
-            if(id === null) {
-                const newId = state.orcamentos.length > 0 ? Math.max(...state.orcamentos.map(o => o.id)) + 1 : 1;
-                state.orcamentos.push({ id: newId, cliente, servico, valor, status, dataLimite, prioridade });
-                showToast('Orçamento criado com sucesso!', 'success');
-
-                if(status === 'Aprovado') {
-                    verificarEAlocarVagaAutomatica(cliente);
+        function verificarRealocacaoFila() {
+            const vagasOcupadasCount = appData.clientes.filter(c => c.status === 'Na Vaga').length;
+            if (vagasOcupadasCount < 15) {
+                const primeiroFilaComOrcamento = appData.clientes.find(c => c.status === 'Fila de Espera' && c.orcamentoFeito);
+                if (primeiroFilaComOrcamento) {
+                    primeiroFilaComOrcamento.status = 'Na Vaga';
+                    alert(`Vaga liberada! O veículo ${primeiroFilaComOrcamento.modelo} de ${primeiroFilaComOrcamento.nome} foi realocado da fila para a vaga.`);
                 }
+            }
+        }
+
+        function resolverServico(id) {
+            const cliente = appData.clientes.find(c => c.id === id);
+            if (!cliente) return;
+            appData.historico.push({ ...cliente, dataConclusao: new Date().toLocaleDateString('pt-BR') });
+            appData.clientes = appData.clientes.filter(c => c.id !== id);
+            const valorFinal = cliente.valorOrcamento > 0 ? cliente.valorOrcamento : 450.00;
+            const pag = appData.pagamentos.find(p => p.cliente === cliente.nome && p.veiculo.includes(cliente.placa));
+            if (!pag) {
+                appData.pagamentos.push({ id: Date.now(), cliente: cliente.nome, veiculo: `${cliente.modelo} (${cliente.placa})`, questao: cliente.questao, valor: valorFinal, status: 'Pago' });
             } else {
-                const o = state.orcamentos.find(item => item.id === id);
-                if(o) {
-                    const statusAntigo = o.status;
-                    o.cliente = cliente;
-                    o.servico = servico;
-                    o.valor = valor;
-                    o.status = status;
-                    o.dataLimite = dataLimite;
-                    o.prioridade = prioridade;
-
-                    if((status === 'Aprovado' || status === 'Concluído') && statusAntigo !== 'Aprovado' && statusAntigo !== 'Concluído') {
-                        verificarEAlocarVagaAutomatica(cliente);
-                    }
-                }
-                showToast('Orçamento atualizado com sucesso!', 'success');
+                pag.status = 'Pago';
             }
-
-            closeModal();
-            renderAll();
+            verificarRealocacaoFila();
+            renderClientes();
+            renderServicos();
+            renderHistorico();
+            renderPagamentos();
+            updateDashboard();
+            alert('Serviço concluído, veículo movido para o Histórico Anterior e caixa atualizado!');
         }
 
-        function editOrcamento(id) {
-            openModalOrcamento(id);
-        }
-
-        function deleteOrcamento(id) {
-            if(confirmCustom("Deseja realmente excluir este orçamento?")) {
-                state.orcamentos = state.orcamentos.filter(o => o.id !== id);
-                showToast('Orçamento removido.', 'info');
-                renderAll();
+        function alternarStatusPagamento(id) {
+            const pag = appData.pagamentos.find(p => p.id === id);
+            if (pag) {
+                pag.status = pag.status === 'Pendente' ? 'Pago' : 'Pendente';
+                renderPagamentos();
+                updateDashboard();
             }
         }
 
-        // --- CONTROLE DE VAGAS & FILA DE ESPERA ---
-        function renderVagasGrid() {
-            const grid = document.getElementById('vagas-grid');
-            grid.innerHTML = '';
-            state.vagas.forEach(v => {
-                const statusBg = v.ocupada ? 'bg-rose-950/30 border-rose-900/50 text-rose-300' : 'bg-emerald-950/30 border-emerald-900/50 text-emerald-300';
-                const statusDot = v.ocupada ? 'bg-rose-500' : 'bg-emerald-500';
-                const statusText = v.ocupada ? 'Ocupada' : 'Disponível';
+        function renderPagamentos() {
+            const tbody = document.getElementById('table-pagamentos-body');
+            tbody.innerHTML = appData.pagamentos.length ? appData.pagamentos.map(p => `
+                <tr class="hover:bg-white/5 transition">
+                    <td class="p-4"><span class="font-bold text-white block">${p.cliente}</span><span class="text-xs text-gray-400">${p.veiculo}</span></td>
+                    <td class="p-4 text-xs text-gray-300">${p.questao}</td>
+                    <td class="p-4 text-white font-medium">R$ ${p.valor.toFixed(2)}</td>
+                    <td class="p-4"><span class="px-2 py-1 rounded text-xs font-semibold ${p.status === 'Pago' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900' : 'bg-amber-950 text-amber-400 border border-amber-900'}">${p.status}</span></td>
+                    <td class="p-4 text-right">
+                        <button onclick="alternarStatusPagamento(${p.id})" class="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded text-xs transition">Alternar</button>
+                    </td>
+                </tr>
+            `).join('') : `<tr><td colspan="5" class="p-6 text-center text-gray-500">Nenhum pagamento registrado.</td></tr>`;
+        }
 
-                grid.innerHTML += `
-                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
-                        <div>
-                            <div class="flex items-center justify-between mb-3">
-                                <span class="font-bold text-white text-base">Vaga #${v.vagaId}</span>
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${statusBg}">
-                                    <span class="w-1.5 h-1.5 rounded-full ${statusDot} mr-1.5 animate-pulse"></span>
-                                    ${statusText}
-                                </span>
+        function renderHistorico() {
+            const tbody = document.getElementById('table-historico-body');
+            tbody.innerHTML = appData.historico.length ? appData.historico.map(h => `
+                <tr class="hover:bg-white/5 transition">
+                    <td class="p-4"><span class="font-bold text-white block">${h.nome}</span><span class="text-xs text-gray-400">${h.cpf}</span></td>
+                    <td class="p-4"><span class="text-white">${h.modelo}</span><span class="block text-xs text-red-500 font-bold">${h.placa}</span></td>
+                    <td class="p-4 text-xs text-gray-300">${h.questao}</td>
+                    <td class="p-4 text-xs text-gray-400">${h.dataConclusao}</td>
+                    <td class="p-4 text-right"><span class="bg-blue-950 text-blue-400 border border-blue-900 px-2 py-1 rounded text-xs font-semibold">Retornável</span></td>
+                </tr>
+            `).join('') : `<tr><td colspan="5" class="p-6 text-center text-gray-500">Nenhum histórico anterior.</td></tr>`;
+        }
+
+        function renderOrcamentos() {
+            const tbody = document.getElementById('table-orcamentos-body');
+            tbody.innerHTML = appData.orcamentos.length ? appData.orcamentos.map(o => `
+                <tr class="hover:bg-white/5 transition">
+                    <td class="p-4"><span class="font-bold text-white block">${o.cliente}</span><span class="text-xs text-gray-400">${o.veiculo}</span></td>
+                    <td class="p-4 text-xs text-gray-300">${o.questao}</td>
+                    <td class="p-4 text-emerald-400 font-bold">R$ ${o.valor.toFixed(2)}</td>
+                    <td class="p-4 text-xs text-blue-400 font-semibold"><i class="fa-solid fa-user-tie mr-1"></i> ${o.responsavel || 'Não atribuído'}</td>
+                    <td class="p-4"><span class="bg-emerald-950 text-emerald-400 border border-emerald-900 px-2 py-1 rounded text-xs">${o.status}</span></td>
+                </tr>
+            `).join('') : `<tr><td colspan="5" class="p-6 text-center text-gray-500">Nenhum orçamento registrado.</td></tr>`;
+        }
+
+        function renderServicos() {
+            const tbody = document.getElementById('table-servicos-body');
+            const ativos = appData.clientes.filter(c => c.status === 'Na Vaga');
+
+            const ordemPrioridade = { 'Alta': 1, 'Média': 2, 'Baixa': 3 };
+            ativos.sort((a, b) => ordemPrioridade[a.prioridade] - ordemPrioridade[b.prioridade]);
+
+            tbody.innerHTML = ativos.length ? ativos.map(a => {
+                const diasAtraso = calcularAtraso(a.dataLimite);
+                return `
+                    <tr class="hover:bg-white/5 transition">
+                        <td class="p-4"><span class="font-bold text-white block">${a.nome}</span><span class="text-xs text-red-500 font-bold">${a.modelo} (${a.placa})</span></td>
+                        <td class="p-4 text-xs text-gray-300">${a.questao}</td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 rounded text-xs font-semibold ${a.prioridade === 'Alta' ? 'bg-red-950 text-red-400 border border-red-900' : (a.prioridade === 'Média' ? 'bg-amber-950 text-amber-400 border border-amber-900' : 'bg-blue-950 text-blue-400 border border-blue-900')}">${a.prioridade}</span>
+                            <div class="text-xs mt-1">
+                                <span class="text-gray-400">Limite: ${a.dataLimite}</span>
+                                ${diasAtraso > 0 ? `<span class="block text-red-500 font-bold mt-0.5">⚠️ Atrasado há ${diasAtraso} dia(s)</span>` : `<span class="block text-emerald-400 font-medium mt-0.5">No prazo</span>`}
                             </div>
-                            <div class="space-y-1 text-xs text-slate-300 my-4">
-                                <p><strong class="text-slate-400">Veículo:</strong> ${v.veiculo}</p>
-                                <p><strong class="text-slate-400">Cliente:</strong> ${v.cliente}</p>
-                            </div>
-                        </div>
-                        <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between">
-                            <button onclick="toggleVagaStatus(${v.vagaId})" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg transition font-medium">
-                                ${v.ocupada ? 'Liberar Vaga' : 'Ocupar Vaga'}
-                            </button>
-                            <button onclick="editVaga(${v.vagaId})" class="text-slate-400 hover:text-blue-400 transition text-xs" title="Editar Detalhes">
-                                <i class="fa-solid fa-pen-to-square"></i>
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-        }
-
-        function renderFilaEspera() {
-            const tbody = document.getElementById('fila-tbody');
-            tbody.innerHTML = '';
-            document.getElementById('badge-fila-count').innerText = `${state.filaEspera.length} cliente(s) em espera`;
-
-            if(state.filaEspera.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-500 text-sm">Nenhum cliente na fila de espera no momento.</td></tr>`;
-                return;
-            }
-
-            state.filaEspera.forEach((f, index) => {
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-800/30 transition">
-                        <td class="py-3 px-4 font-mono text-indigo-400 font-bold">#${index + 1}</td>
-                        <td class="py-3 px-4 font-medium text-white">${f.cliente}</td>
-                        <td class="py-3 px-4 text-slate-300">${f.veiculo}</td>
-                        <td class="py-3 px-4 text-slate-400 text-xs">${f.dataCadastro}</td>
-                        <td class="py-3 px-4 text-right">
-                            <button onclick="removerDaFila(${f.id})" class="text-slate-400 hover:text-rose-400 text-xs transition" title="Remover da Fila"><i class="fa-solid fa-xmark"></i> Remover</button>
+                        </td>
+                        <td class="p-4 text-right">
+                            <button onclick="resolverServico(${a.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded text-xs font-medium transition"><i class="fa-solid fa-check mr-1"></i> Resolver</button>
                         </td>
                     </tr>
                 `;
-            });
+            }).join('') : `<tr><td colspan="4" class="p-6 text-center text-gray-500">Nenhum serviço nas vagas.</td></tr>`;
         }
 
-        function removerDaFila(id) {
-            state.filaEspera = state.filaEspera.filter(f => f.id !== id);
-            showToast('Cliente removido da fila de espera.', 'info');
-            renderAll();
-        }
-
-        function toggleVagaStatus(vagaId) {
-            const v = state.vagas.find(item => item.vagaId === vagaId);
-            if(v) {
-                if(v.ocupada) {
-                    v.ocupada = false;
-                    v.veiculo = '-';
-                    v.cliente = '-';
-                    showToast(`Vaga #${vagaId} liberada. Verificando fila de espera...`, 'info');
-                    processarFilaEspera(); // Preenche automaticamente se houver alguém na fila
-                } else {
-                    v.ocupada = true;
-                    v.veiculo = 'Veículo em Manutenção';
-                    v.cliente = 'Cliente Geral';
-                    showToast(`Vaga #${vagaId} ocupada.`, 'success');
-                }
-                renderAll();
-            }
-        }
-
-        function openModalVaga() {
-            let vagaOptions = state.vagas.map(v => `<option value="${v.vagaId}">Vaga #${v.vagaId} (${v.ocupada ? 'Ocupada: ' + v.veiculo : 'Livre'})</option>`).join('');
-            
-            const clientesAprovadosNomes = [...new Set(state.orcamentos.filter(o => o.status === 'Aprovado' || o.status === 'Concluído').map(o => o.cliente))];
-            
-            let clienteOptions = '';
-            if(clientesAprovadosNomes.length === 0) {
-                clienteOptions = `<option value="">Nenhum cliente ativo com orçamento Aprovado/Concluído</option>`;
-            } else {
-                clienteOptions = clientesAprovadosNomes.map(nomeCli => {
-                    const cliObj = state.clientes.find(c => c.nome === nomeCli && c.statusCliente === 'Ativo');
-                    if(!cliObj) return '';
-                    const veiculoStr = cliObj.veiculo;
-                    return `<option value="${nomeCli}|${veiculoStr}">${nomeCli} - ${veiculoStr}</option>`;
-                }).join('');
-            }
-
-            document.getElementById('modal-content').innerHTML = `
-                <h3 class="text-lg font-bold text-white mb-4">Gerenciar Alocação de Vaga</h3>
-                <p class="text-xs text-slate-400 mb-3">Apenas clientes <strong>Ativos</strong> com orçamentos Aprovados podem ocupar vagas.</p>
-                <form onsubmit="saveVagaAllocation(event)" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Selecione a Vaga (1 a 10)</label>
-                        <select id="v-id" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500">
-                            ${vagaOptions}
-                        </select>
+        function renderVagasFila() {
+            const vagas = appData.clientes.filter(c => c.status === 'Na Vaga');
+            const fila = appData.clientes.filter(c => c.status === 'Fila de Espera');
+            document.getElementById('count-vagas').innerText = vagas.length;
+            document.getElementById('count-fila').innerText = fila.length;
+            document.getElementById('list-vagas-container').innerHTML = vagas.length ? vagas.map(v => {
+                const diasAtraso = calcularAtraso(v.dataLimite);
+                return `
+                    <div class="p-3 bg-[#121212] border border-brand-border rounded-lg flex justify-between items-center text-xs">
+                        <div>
+                            <strong>${v.modelo}</strong> (${v.placa})<span class="block text-gray-400">${v.nome} - Entrada: ${formatDateBR(v.data)}</span>
+                            ${diasAtraso > 0 ? `<span class="text-red-400 font-bold mt-0.5 block">⚠️ Atrasado há ${diasAtraso} dia(s)</span>` : `<span class="text-emerald-400 mt-0.5 block">Limite: ${v.dataLimite}</span>`}
+                        </div>
+                        <span class="text-emerald-400 font-semibold bg-emerald-950/40 px-2 py-1 rounded border border-emerald-900/40 h-fit">Vaga Ativa</span>
                     </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Status da Vaga</label>
-                        <select id="v-status" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500">
-                            <option value="ocupada">Ocupada</option>
-                            <option value="livre">Livre</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Vincular Cliente Ativo</label>
-                        <select id="v-cliente-veiculo" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500">
-                            <option value="-|-">Nenhum / Vazio</option>
-                            ${clienteOptions}
-                        </select>
-                    </div>
-                    <div class="flex justify-end space-x-3 pt-2">
-                        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium transition">Cancelar</button>
-                        <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition">Atualizar Vaga</button>
-                    </div>
-                </form>
-            `;
-            document.getElementById('modal-overlay').classList.remove('hidden');
-            document.getElementById('modal-overlay').classList.add('flex');
-        }
-
-        function saveVagaAllocation(e) {
-            e.preventDefault();
-            const vagaId = parseInt(document.getElementById('v-id').value);
-            const status = document.getElementById('v-status').value;
-            const cv = document.getElementById('v-cliente-veiculo').value.split('|');
-            
-            const v = state.vagas.find(item => item.vagaId === vagaId);
-            if(v) {
-                if(status === 'ocupada') {
-                    v.ocupada = true;
-                    v.cliente = cv[0] !== '-' ? cv[0] : 'Cliente Geral';
-                    v.veiculo = cv[1] !== '-' ? cv[1] : 'Automóvel';
-                } else {
-                    v.ocupada = false;
-                    v.cliente = '-';
-                    v.veiculo = '-';
-                    processarFilaEspera();
-                }
-                showToast(`Vaga #${vagaId} atualizada com sucesso!`, 'success');
-            }
-            closeModal();
-            renderAll();
-        }
-
-        function editVaga(vagaId) {
-            openModalVaga();
-            document.getElementById('v-id').value = vagaId;
-        }
-
-        // --- CRUD ATRASOS ---
-        function renderAtrasosTable() {
-            const tbody = document.getElementById('atrasos-tbody');
-            tbody.innerHTML = '';
-            
-            if (state.atrasos.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-500 text-sm">Nenhum atraso registrado ou pendente no momento.</td></tr>`;
-                return;
-            }
-
-            state.atrasos.forEach(a => {
-                const priorityColor = a.prioridade === 'Alta' || a.prioridade === 'Urgente' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-800/30 transition">
-                        <td class="py-3.5 px-6 font-mono text-slate-400">#${a.id}</td>
-                        <td class="py-3.5 px-6 font-medium text-white">${a.cliente}</td>
-                        <td class="py-3.5 px-6 text-slate-300">${a.veiculo}</td>
-                        <td class="py-3.5 px-6 text-slate-300">${a.motivo}</td>
-                        <td class="py-3.5 px-6 font-semibold text-rose-400">${a.diasAtraso} dia(s)</td>
-                        <td class="py-3.5 px-6"><span class="border px-2.5 py-1 rounded-full text-xs font-medium ${priorityColor}">${a.prioridade}</span></td>
-                        <td class="py-3.5 px-6 text-right space-x-2">
-                            <button onclick="editAtraso(${a.id})" class="text-slate-400 hover:text-rose-400 transition p-1.5" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
-                            <button onclick="deleteAtraso(${a.id})" class="text-slate-400 hover:text-emerald-400 transition p-1.5" title="Resolver"><i class="fa-solid fa-check"></i></button>
-                        </td>
-                    </tr>
                 `;
-            });
-        }
-
-        function openModalAtraso(id = null) {
-            const isEdit = id !== null;
-            let atraso = { cliente: '', veiculo: '', motivo: '', diasAtraso: 1, prioridade: 'Média' };
-            if(isEdit) {
-                atraso = state.atrasos.find(a => a.id === id);
-            }
-
-            const clientesAprovadosNomes = [...new Set(state.orcamentos.filter(o => o.status === 'Aprovado' || o.status === 'Concluído').map(o => o.cliente))];
+            }).join('') : '<p class="text-xs text-gray-500">Nenhum veículo na vaga.</p>';
             
-            let clienteOptions = '';
-            if(clientesAprovadosNomes.length === 0) {
-                clienteOptions = `<option value="">Nenhum cliente com orçamento Aprovado/Concluído</option>`;
-            } else {
-                clienteOptions = clientesAprovadosNomes.map(nomeCli => {
-                    const cliObj = state.clientes.find(c => c.nome === nomeCli);
-                    const veiculoStr = cliObj ? cliObj.veiculo : 'Veículo';
-                    const fullVal = `${nomeCli}|${veiculoStr}`;
-                    return `<option value="${fullVal}" ${atraso.cliente === nomeCli ? 'selected' : ''}>${nomeCli} - ${veiculoStr}</option>`;
-                }).join('');
+            document.getElementById('list-fila-container').innerHTML = fila.length ? fila.map(f => `
+                <div class="p-3 bg-[#121212] border border-brand-border rounded-lg flex justify-between items-center text-xs">
+                    <div><strong>${f.modelo}</strong> (${f.placa})<span class="block text-gray-400">${f.nome} - <span class="text-amber-400">Orçamento: ${f.orcamentoFeito ? 'Aprovado' : 'Pendente'}</span></span></div>
+                    <span class="text-amber-400 font-semibold bg-amber-950/40 px-2 py-1 rounded border border-emerald-900/40">Na Fila</span>
+                </div>
+            `).join('') : '<p class="text-xs text-gray-500">Fila vazia.</p>';
+        }
+
+        function updateDashboard() {
+            document.getElementById('stat-clientes').innerText = appData.clientes.length;
+            document.getElementById('stat-vagas').innerText = `${appData.clientes.filter(c => c.status === 'Na Vaga').length} / 15`;
+            document.getElementById('stat-fila').innerText = `${appData.clientes.filter(c => c.status === 'Fila de Espera').length} / 25`;
+            let totalRecebido = appData.pagamentos.filter(p => p.status === 'Pago').reduce((acc, p) => acc + p.valor, 0);
+            let totalPendente = appData.pagamentos.filter(p => p.status === 'Pendente').reduce((acc, p) => acc + p.valor, 0);
+            let totalGeral = totalRecebido + totalPendente;
+            document.getElementById('stat-caixa').innerText = `R$ ${totalRecebido.toFixed(2)}`;
+            if (document.getElementById('caixa-recebido')) {
+                document.getElementById('caixa-recebido').innerText = `R$ ${totalRecebido.toFixed(2)}`;
+                document.getElementById('caixa-pendente').innerText = `R$ ${totalPendente.toFixed(2)}`;
+                document.getElementById('caixa-geral').innerText = `R$ ${totalGeral.toFixed(2)}`;
             }
-
-            document.getElementById('modal-content').innerHTML = `
-                <h3 class="text-lg font-bold text-white mb-4">${isEdit ? 'Editar Observação de Atraso' : 'Registrar Observação de Atraso'}</h3>
-                <form onsubmit="saveAtraso(event, ${isEdit ? id : 'null'})" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Cliente & Veículo (Aprovado)</label>
-                        <select id="a-cv" required class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-rose-500">
-                            <option value="">Selecione...</option>
-                            ${clienteOptions}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Motivo / Nota</label>
-                        <input type="text" id="a-motivo" required value="${atraso.motivo}" placeholder="Ex: Esperando peça importada" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-rose-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Dias de Atraso</label>
-                        <input type="number" min="1" id="a-dias" required value="${atraso.diasAtraso}" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-rose-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 uppercase mb-1">Prioridade</label>
-                        <select id="a-prioridade" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-rose-500">
-                            <option value="Média" ${atraso.prioridade === 'Média' ? 'selected' : ''}>Média</option>
-                            <option value="Alta" ${atraso.prioridade === 'Alta' ? 'selected' : ''}>Alta</option>
-                            <option value="Urgente" ${atraso.prioridade === 'Urgente' ? 'selected' : ''}>Urgente</option>
-                        </select>
-                    </div>
-                    <div class="flex justify-end space-x-3 pt-2">
-                        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium transition">Cancelar</button>
-                        <button type="submit" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition">Salvar Observação</button>
-                    </div>
-                </form>
-            `;
-            document.getElementById('modal-overlay').classList.remove('hidden');
-            document.getElementById('modal-overlay').classList.add('flex');
-        }
-
-        function saveAtraso(e, id) {
-            e.preventDefault();
-            const cv = document.getElementById('a-cv').value.split('|');
-            const cliente = cv[0];
-            const veiculo = cv[1];
-            const motivo = document.getElementById('a-motivo').value;
-            const diasAtraso = parseInt(document.getElementById('a-dias').value);
-            const prioridade = document.getElementById('a-prioridade').value;
-
-            if(id === null) {
-                const newId = state.atrasos.length > 0 ? Math.max(...state.atrasos.map(a => a.id)) + 1 : 1;
-                state.atrasos.push({ id: newId, cliente, veiculo, motivo, diasAtraso, prioridade });
-                showToast('Observação de atraso registrada!', 'success');
-            } else {
-                const a = state.atrasos.find(item => item.id === id);
-                if(a) {
-                    a.cliente = cliente;
-                    a.veiculo = veiculo;
-                    a.motivo = motivo;
-                    a.diasAtraso = diasAtraso;
-                    a.prioridade = prioridade;
-                }
-                showToast('Atraso atualizado com sucesso!', 'success');
-            }
-
-            closeModal();
-            renderAll();
-        }
-
-        function editAtraso(id) {
-            openModalAtraso(id);
-        }
-
-        function deleteAtraso(id) {
-            if(confirmCustom("Deseja marcar este atraso como resolvido?")) {
-                state.atrasos = state.atrasos.filter(a => a.id !== id);
-                showToast('Pendência marcada como resolvida!', 'success');
-                renderAll();
-            }
-        }
-
-        function closeModal() {
-            document.getElementById('modal-overlay').classList.remove('flex');
-            document.getElementById('modal-overlay').classList.add('hidden');
-        }
-
-        function applyPhoneMask(input) {
-            let value = input.value.replace(/\D/g, '');
-            if (value.length > 11) value = value.slice(0, 11);
-
-            if (value.length > 10) {
-                value = value.replace(/^(\d{2})(\d{5})(\d{4}).*/, '($1) $2-$3');
-            } else if (value.length > 6) {
-                value = value.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, '($1) $2-$3');
-            } else if (value.length > 2) {
-                value = value.replace(/^(\d{2})(\d{0,5})/, '($1) $2');
-            } else if (value.length > 0) {
-                value = value.replace(/^(\d{0,2})/, '($1');
-            }
-
-            input.value = value;
-        }
-
-        function showToast(message, type = 'info') {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            
-            let bg = 'bg-slate-900 border-slate-700 text-white';
-            let icon = 'fa-circle-info text-blue-400';
-            if(type === 'success') {
-                bg = 'bg-slate-900 border-emerald-500/50 text-white';
-                icon = 'fa-circle-check text-emerald-400';
-            } else if(type === 'warning') {
-                bg = 'bg-slate-900 border-amber-500/50 text-white';
-                icon = 'fa-triangle-exclamation text-amber-400';
-            } else if(type === 'error') {
-                bg = 'bg-slate-900 border-rose-500/50 text-white';
-                icon = 'fa-triangle-exclamation text-rose-400';
-            }
-
-            toast.className = `pointer-events-auto flex items-center space-x-3 px-4 py-3 rounded-xl border shadow-2xl ${bg} transition transform translate-y-2 opacity-0`;
-            toast.innerHTML = `
-                <i class="fa-solid ${icon} text-lg"></i>
-                <span class="text-sm font-medium">${message}</span>
-            `;
-
-            container.appendChild(toast);
-            setTimeout(() => {
-                toast.classList.remove('translate-y-2', 'opacity-0');
-            }, 10);
-
-            setTimeout(() => {
-                toast.classList.add('translate-y-2', 'opacity-0');
-                setTimeout(() => toast.remove(), 300);
-            }, 3500);
-        }
-
-        function confirmCustom(message) {
-            return window.confirm(message);
         }
     </script>
 </body>
