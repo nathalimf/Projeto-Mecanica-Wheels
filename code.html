@@ -394,7 +394,7 @@
                     <div class="flex justify-between items-center bg-brand-card border border-brand-border p-4 rounded-xl">
                         <div>
                             <h3 class="text-base font-bold text-white"><i class="fa-solid fa-user-shield text-red-600 mr-2"></i> Gestão de Usuários e Acessos</h3>
-                            <p class="text-xs text-gray-400 mt-0.5">Cadastre novos administradores ou funcionários para o sistema</p>
+                            <p class="text-xs text-gray-400 mt-0.5">Cadastre ou altere informações de administradores e funcionários</p>
                         </div>
                         <button onclick="openModalUsuario()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-lg shadow-red-600/20">
                             <i class="fa-solid fa-user-plus"></i> Novo Usuário
@@ -495,11 +495,12 @@
         </div>
     </div>
 
-    <!-- MODAL DE CADASTRO DE USUÁRIO -->
+    <!-- MODAL DE CADASTRO / EDIÇÃO DE USUÁRIO -->
     <div id="modal-usuario" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/70 px-4">
         <div class="max-w-md w-full bg-brand-card border border-brand-border rounded-xl p-6 shadow-2xl">
-            <h3 class="text-base font-bold text-white mb-4"><i class="fa-solid fa-user-plus text-red-600 mr-2"></i> Cadastrar Novo Usuário</h3>
+            <h3 id="modal-usuario-title" class="text-base font-bold text-white mb-4"><i class="fa-solid fa-user-plus text-red-600 mr-2"></i> Cadastrar Novo Usuário</h3>
             <form id="form-usuario" onsubmit="saveUsuario(event)" class="space-y-4">
+                <input type="hidden" id="usu-edit-id" value="">
                 <div>
                     <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Nome Completo</label>
                     <input type="text" id="usu-nome" required class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="Ex: Marcos Vinicius">
@@ -509,7 +510,7 @@
                     <input type="email" id="usu-email" required class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="ex: marcos@mecanicawheels.com">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Senha Provisória</label>
+                    <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Senha / Senha Provisória</label>
                     <input type="password" id="usu-senha" required class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="••••••••">
                 </div>
                 <div>
@@ -521,7 +522,7 @@
                 </div>
                 <div class="flex justify-end gap-3 pt-4">
                     <button type="button" onclick="closeModals()" class="bg-white/5 hover:bg-white/10 text-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition">Cancelar</button>
-                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">Cadastrar Usuário</button>
+                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">Salvar Usuário</button>
                 </div>
             </form>
         </div>
@@ -807,24 +808,60 @@
         }
 
         function openModalUsuario() {
+            document.getElementById('usu-edit-id').value = "";
+            document.getElementById('modal-usuario-title').innerHTML = '<i class="fa-solid fa-user-plus text-red-600 mr-2"></i> Cadastrar Novo Usuário';
             document.getElementById('form-usuario').reset();
+            document.getElementById('modal-usuario').classList.remove('hidden');
+        }
+
+        function openEditUsuario(id) {
+            const u = appData.usuarios.find(item => item.id === id);
+            if (!u) return;
+            document.getElementById('usu-edit-id').value = u.id;
+            document.getElementById('modal-usuario-title').innerHTML = '<i class="fa-solid fa-user-pen text-red-600 mr-2"></i> Editar Informações do Usuário';
+            document.getElementById('usu-nome').value = u.nome;
+            document.getElementById('usu-email').value = u.email;
+            document.getElementById('usu-senha').value = u.senha;
+            document.getElementById('usu-role').value = u.role;
             document.getElementById('modal-usuario').classList.remove('hidden');
         }
 
         function saveUsuario(e) {
             e.preventDefault();
+            const editId = document.getElementById('usu-edit-id').value;
             const nome = document.getElementById('usu-nome').value;
             const email = document.getElementById('usu-email').value;
             const senha = document.getElementById('usu-senha').value;
             const role = document.getElementById('usu-role').value;
 
-            if (appData.usuarios.some(u => u.email === email)) {
-                alert('Já existe um usuário cadastrado com este e-mail!');
-                return;
+            if (editId) {
+                const u = appData.usuarios.find(item => item.id == editId);
+                if (u) {
+                    // Verificar se o novo e-mail já pertence a outro usuário
+                    if (appData.usuarios.some(item => item.email === email && item.id != editId)) {
+                        alert('Já existe outro usuário cadastrado com este e-mail!');
+                        return;
+                    }
+                    u.nome = nome;
+                    u.email = email;
+                    u.senha = senha;
+                    u.role = role;
+                    
+                    if (currentUser && currentUser.id === u.id) {
+                        currentUser = u;
+                        document.getElementById('user-display-name').innerText = currentUser.nome;
+                        document.getElementById('user-display-role').innerText = `Perfil: ${userRole.toUpperCase()}`;
+                    }
+                    alert('Informações do usuário atualizadas com sucesso!');
+                }
+            } else {
+                if (appData.usuarios.some(u => u.email === email)) {
+                    alert('Já existe um usuário cadastrado com este e-mail!');
+                    return;
+                }
+                appData.usuarios.push({ id: Date.now(), nome, email, senha, role });
+                alert(`Usuário ${nome} (${role.toUpperCase()}) cadastrado com sucesso!`);
             }
-
-            appData.usuarios.push({ id: Date.now(), nome, email, senha, role });
-            alert(`Usuário ${nome} (${role.toUpperCase()}) cadastrado com sucesso!`);
             closeModals();
             renderUsuarios();
         }
@@ -851,7 +888,8 @@
                 <tr class="hover:bg-white/5 transition">
                     <td class="p-4"><span class="font-bold text-white block">${u.nome}</span><span class="text-xs text-gray-400">${u.email}</span></td>
                     <td class="p-4"><span class="text-xs uppercase font-semibold px-2 py-1 rounded ${u.role === 'adm' ? 'bg-red-950 text-red-400 border border-red-900' : 'bg-blue-950 text-blue-400 border border-blue-900'}">${u.role}</span></td>
-                    <td class="p-4 text-right">
+                    <td class="p-4 text-right space-x-2">
+                        <button onclick="openEditUsuario(${u.id})" class="text-gray-400 hover:text-white transition" title="Editar Usuário"><i class="fa-solid fa-pen"></i></button>
                         <button onclick="deleteUsuario(${u.id})" class="text-gray-500 hover:text-red-500 transition" title="Excluir Usuário"><i class="fa-solid fa-trash"></i></button>
                     </td>
                 </tr>
