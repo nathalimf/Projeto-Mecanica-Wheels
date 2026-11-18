@@ -641,10 +641,9 @@
             return dateStr;
         }
 
-        // FUNÇÃO CORRIGIDA PARA PUXAR A DATA DO SISTEMA EM TEMPO REAL
         function calcularAtraso(dataLimiteStr) {
-            const hoje = new Date(); // Puxa a data atual do sistema do usuário
-            hoje.setHours(0, 0, 0, 0); // Zera as horas para comparar apenas os dias
+            const hoje = new Date();
+            hoje.setHours(0, 0, 0, 0);
             
             const partes = dataLimiteStr.split('/');
             if (partes.length !== 3) return 0;
@@ -860,7 +859,6 @@
             document.getElementById('cli-edit-id').value = "";
             document.getElementById('modal-cliente-title').innerText = "Cadastrar Cliente, Veículo e Orçamento";
             document.getElementById('form-cliente').reset();
-            // Define a data atual padrão no formulário em formato YYYY-MM-DD
             const hojeIso = new Date().toISOString().split('T')[0];
             document.getElementById('cli-data').value = hojeIso;
             document.getElementById('div-cli-valor').classList.add('hidden');
@@ -1014,19 +1012,22 @@
             const valorOrc = parseFloat(document.getElementById('cli-valor').value) || 0;
             const responsavelOrc = document.getElementById('cli-responsavel').value || currentUser.nome;
             const dataLimiteCalc = calcularDataLimite(dataEntrada, prioridade);
+            const nomeCliente = document.getElementById('cli-nome').value;
+            const modeloVeiculo = document.getElementById('cli-modelo').value;
+            const questaoCliente = document.getElementById('cli-questao').value;
 
             if (editId) {
                 const cli = appData.clientes.find(item => item.id == editId);
                 if (cli) {
-                    cli.nome = document.getElementById('cli-nome').value;
+                    cli.nome = nomeCliente;
                     cli.cpf = cpfInput;
                     cli.telefone = document.getElementById('cli-tel').value;
-                    cli.modelo = document.getElementById('cli-modelo').value;
+                    cli.modelo = modeloVeiculo;
                     cli.placa = placaInput;
                     cli.data = dataEntrada;
                     cli.prioridade = prioridade;
                     cli.dataLimite = dataLimiteCalc;
-                    cli.questao = document.getElementById('cli-questao').value;
+                    cli.questao = questaoCliente;
                     cli.orcamentoFeito = orcFeito;
                     cli.valorOrcamento = valorOrc;
                     cli.responsavel = responsavelOrc;
@@ -1039,6 +1040,47 @@
                             cli.status = 'Na Vaga';
                         }
                     }
+
+                    // Atualiza ou insere na aba de Orçamentos
+                    if (orcFeito && valorOrc > 0) {
+                        let orcExistente = appData.orcamentos.find(o => o.veiculo.includes(placaInput));
+                        if (orcExistente) {
+                            orcExistente.cliente = nomeCliente;
+                            orcExistente.veiculo = `${modeloVeiculo} (${placaInput})`;
+                            orcExistente.questao = questaoCliente;
+                            orcExistente.valor = valorOrc;
+                            orcExistente.responsavel = responsavelOrc;
+                        } else {
+                            appData.orcamentos.push({
+                                cliente: nomeCliente,
+                                veiculo: `${modeloVeiculo} (${placaInput})`,
+                                questao: questaoCliente,
+                                valor: valorOrc,
+                                responsavel: responsavelOrc,
+                                status: 'Aprovado'
+                            });
+                        }
+                    }
+
+                    // Atualiza ou insere no Caixa / Pagamentos
+                    if (orcFeito && valorOrc > 0) {
+                        let pagExistente = appData.pagamentos.find(p => p.veiculo.includes(placaInput));
+                        if (pagExistente) {
+                            pagExistente.valor = valorOrc;
+                            pagExistente.questao = questaoCliente;
+                            pagExistente.cliente = nomeCliente;
+                        } else {
+                            appData.pagamentos.push({
+                                id: Date.now(),
+                                cliente: nomeCliente,
+                                veiculo: `${modeloVeiculo} (${placaInput})`,
+                                questao: questaoCliente,
+                                valor: valorOrc,
+                                status: 'Pendente'
+                            });
+                        }
+                    }
+
                     alert('Registro atualizado com sucesso!');
                 }
             } else {
@@ -1063,12 +1105,12 @@
 
                 const novoCliente = {
                     id: Date.now(),
-                    nome: document.getElementById('cli-nome').value,
+                    nome: nomeCliente,
                     cpf: cpfInput,
                     telefone: document.getElementById('cli-tel').value,
-                    modelo: document.getElementById('cli-modelo').value,
+                    modelo: modeloVeiculo,
                     placa: placaInput,
-                    questao: document.getElementById('cli-questao').value,
+                    questao: questaoCliente,
                     orcamentoFeito: orcFeito,
                     valorOrcamento: valorOrc,
                     responsavel: responsavelOrc,
@@ -1078,13 +1120,33 @@
                     dataLimite: dataLimiteCalc
                 };
                 appData.clientes.push(novoCliente);
+
                 if (orcFeito) {
-                    appData.orcamentos.push({ cliente: novoCliente.nome, veiculo: `${novoCliente.modelo} (${novoCliente.placa})`, questao: novoCliente.questao, valor: valorOrc, responsavel: responsavelOrc, status: 'Aprovado' });
-                    appData.pagamentos.push({ id: Date.now(), cliente: novoCliente.nome, veiculo: `${novoCliente.modelo} (${novoCliente.placa})`, questao: novoCliente.questao, valor: valorOrc, status: 'Pendente' });
+                    // INSERE AUTOMATICAMENTE NA ABA DE ORÇAMENTOS COM O RESPONSÁVEL
+                    appData.orcamentos.push({ 
+                        cliente: novoCliente.nome, 
+                        veiculo: `${novoCliente.modelo} (${novoCliente.placa})`, 
+                        questao: novoCliente.questao, 
+                        valor: valorOrc, 
+                        responsavel: responsavelOrc, 
+                        status: 'Aprovado' 
+                    });
+
+                    // INSERE AUTOMATICAMENTE COMO PENDENTE NO CAIXA E PAGAMENTOS
+                    appData.pagamentos.push({ 
+                        id: Date.now(), 
+                        cliente: novoCliente.nome, 
+                        veiculo: `${novoCliente.modelo} (${novoCliente.placa})`, 
+                        questao: novoCliente.questao, 
+                        valor: valorOrc, 
+                        status: 'Pendente' 
+                    });
                 }
             }
             closeModals();
             renderClientes();
+            renderOrcamentos();
+            renderPagamentos();
             updateDashboard();
         }
 
