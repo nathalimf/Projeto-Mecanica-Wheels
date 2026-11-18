@@ -288,7 +288,7 @@
                         <div class="bg-brand-card border border-brand-border rounded-xl p-6">
                             <div class="flex justify-between items-center mb-4">
                                 <h4 class="text-sm font-bold text-white uppercase tracking-wider">Fila de Espera (<span id="count-fila">0</span>/25)</h4>
-                                <span class="text-xs text-amber-400 bg-amber-950/40 px-2 py-1 rounded border border-amber-900/40">Até 25 clientes</span>
+                                <span class="text-xs text-amber-400 bg-amber-950/40 px-2 py-1 rounded border border-emerald-900/40">Até 25 clientes</span>
                             </div>
                             <div id="list-fila-container" class="space-y-2"></div>
                         </div>
@@ -428,18 +428,17 @@
             <form id="form-cliente" onsubmit="saveCliente(event)" class="space-y-4">
                 <input type="hidden" id="cli-edit-id" value="">
                 <div>
+                    <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">CPF (Identificação)</label>
+                    <input type="text" id="cli-cpf" required oninput="maskCPF(this); verificarClienteRecorrente(this)" maxlength="14" class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="000.000.000-00">
+                    <span id="aviso-recorrente" class="hidden text-[11px] text-blue-400 mt-1 block"><i class="fa-solid fa-circle-check mr-1"></i> Cliente recorrente identificado! Dados preenchidos automaticamente.</span>
+                </div>
+                <div>
                     <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Nome Completo</label>
                     <input type="text" id="cli-nome" required class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white">
                 </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">CPF</label>
-                        <input type="text" id="cli-cpf" required oninput="maskCPF(this)" maxlength="14" class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="000.000.000-00">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Telefone</label>
-                        <input type="text" id="cli-tel" required oninput="maskPhone(this)" maxlength="15" class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="(11) 90000-0000">
-                    </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Telefone</label>
+                    <input type="text" id="cli-tel" required oninput="maskPhone(this)" maxlength="15" class="w-full bg-[#121212] border border-brand-border rounded-lg px-3 py-2 text-sm text-white" placeholder="(11) 90000-0000">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -689,20 +688,24 @@
                 { id: 104, nome: "Marcos Vinicius", cpf: "345.678.901-23", telefone: "(11) 96543-2109", modelo: "Jeep Renegade", placa: "JEP-2024", questao: "Suspensão dianteira batendo", orcamentoFeito: true, valorOrcamento: 890.00, responsavel: "Ana Souza", prioridade: "Alta", status: "Na Vaga", data: "2026-10-12", dataLimite: "14/10/2026" },
                 { id: 105, nome: "Juliana Mendes", cpf: "456.789.012-34", telefone: "(11) 95432-1098", modelo: "Hyundai HB20", placa: "HYU-5544", questao: "Luz de injeção acesa no painel", orcamentoFeito: true, valorOrcamento: 320.00, responsavel: "Lucas Pereira", prioridade: "Média", status: "Na Vaga", data: "2026-10-11", dataLimite: "16/10/2026" }
             ],
-            historico: [],
+            historico: [
+                { id: 999, nome: "Nana", cpf: "999.999.999-99", telefone: "(11) 99999-9999", modelo: "asasasas", placa: "ASASASAS", questao: "sasasasasasasas", dataConclusao: "18/11/2026" }
+            ],
             orcamentos: [
-                { cliente: "Roberto Almeida", veiculo: "Fiat Palio", questao: "Troca de embreagem", valor: 450.00, responsavel: "Ana Souza", status: "Aprovado" },
-                { cliente: "Roberto Almeida", veiculo: "Fiat Toro", questao: "Revisão de freios", valor: 600.00, responsavel: "Lucas Pereira", status: "Aprovado" },
-                { cliente: "Fernanda Costa", veiculo: "Honda Civic", questao: "Revisão geral dos 50 mil km", valor: 750.00, responsavel: "Mariana Costa", status: "Aprovado" },
-                { cliente: "Marcos Vinicius", veiculo: "Jeep Renegade", questao: "Suspensão dianteira batendo", valor: 890.00, responsavel: "Ana Souza", status: "Aprovado" },
-                { cliente: "Juliana Mendes", veiculo: "Hyundai HB20", questao: "Luz de injeção acesa no painel", valor: 320.00, responsavel: "Lucas Pereira", status: "Aprovado" }
+                { cliente: "Roberto Almeida", veiculo: "Fiat Palio (ABC-1234)", questao: "Troca de embreagem", valor: 450.00, responsavel: "Ana Souza", status: "Aprovado" },
+                { cliente: "Roberto Almeida", veiculo: "Fiat Toro (TOR-5566)", questao: "Revisão de freios", valor: 600.00, responsavel: "Lucas Pereira", status: "Aprovado" },
+                { cliente: "Fernanda Costa", veiculo: "Honda Civic (XYZ-9876)", questao: "Revisão geral dos 50 mil km", valor: 750.00, responsavel: "Mariana Costa", status: "Aprovado" },
+                { cliente: "Marcos Vinicius", veiculo: "Jeep Renegade (JEP-2024)", questao: "Suspensão dianteira batendo", valor: 890.00, responsavel: "Ana Souza", status: "Aprovado" },
+                { cliente: "Juliana Mendes", veiculo: "Hyundai HB20 (HYU-5544)", questao: "Luz de injeção acesa no painel", valor: 320.00, responsavel: "Lucas Pereira", status: "Aprovado" },
+                { cliente: "Nana", veiculo: "asasasas (ASASASAS)", questao: "sasasasasasasas", valor: 1000.00, responsavel: "Lucas Pereira", status: "Resolvido (Cliente Anterior)" }
             ],
             pagamentos: [
-                { id: 1, cliente: "Roberto Almeida", veiculo: "Fiat Palio", questao: "Troca de embreagem", valor: 450.00, status: "Pendente" },
-                { id: 2, cliente: "Roberto Almeida", veiculo: "Fiat Toro", questao: "Revisão de freios", valor: 600.00, status: "Pendente" },
-                { id: 3, cliente: "Fernanda Costa", veiculo: "Honda Civic", questao: "Revisão geral dos 50 mil km", valor: 750.00, status: "Pendente" },
-                { id: 4, cliente: "Marcos Vinicius", veiculo: "Jeep Renegade", questao: "Suspensão dianteira batendo", valor: 890.00, status: "Pendente" },
-                { id: 5, cliente: "Juliana Mendes", veiculo: "Hyundai HB20", questao: "Luz de injeção acesa no painel", valor: 320.00, status: "Pago" }
+                { id: 1, cliente: "Roberto Almeida", veiculo: "Fiat Palio (ABC-1234)", questao: "Troca de embreagem", valor: 450.00, status: "Pendente" },
+                { id: 2, cliente: "Roberto Almeida", veiculo: "Fiat Toro (TOR-5566)", questao: "Revisão de freios", valor: 600.00, status: "Pendente" },
+                { id: 3, cliente: "Fernanda Costa", veiculo: "Honda Civic (XYZ-9876)", questao: "Revisão geral dos 50 mil km", valor: 750.00, status: "Pendente" },
+                { id: 4, cliente: "Marcos Vinicius", veiculo: "Jeep Renegade (JEP-2024)", questao: "Suspensão dianteira batendo", valor: 890.00, status: "Pendente" },
+                { id: 5, cliente: "Juliana Mendes", veiculo: "Hyundai HB20 (HYU-5544)", questao: "Luz de injeção acesa no painel", valor: 320.00, status: "Pago" },
+                { id: 6, cliente: "Nana", veiculo: "asasasas (ASASASAS)", questao: "sasasasasasasas", valor: 1000.00, status: "Resolvido (Cliente Anterior)" }
             ],
             estoque: [
                 { id: 1, codigo: "7891001", nome: "Pastilha de Freio Dianteira", categoria: "Freios", qtd: 2, min: 4 },
@@ -859,10 +862,28 @@
             document.getElementById('cli-edit-id').value = "";
             document.getElementById('modal-cliente-title').innerText = "Cadastrar Cliente, Veículo e Orçamento";
             document.getElementById('form-cliente').reset();
+            document.getElementById('aviso-recorrente').classList.add('hidden');
             const hojeIso = new Date().toISOString().split('T')[0];
             document.getElementById('cli-data').value = hojeIso;
             document.getElementById('div-cli-valor').classList.add('hidden');
             document.getElementById('modal-cliente').classList.remove('hidden');
+        }
+
+        function verificarClienteRecorrente(input) {
+            const cpfVal = input.value.trim();
+            const aviso = document.getElementById('aviso-recorrente');
+            if (cpfVal.length < 14) {
+                aviso.classList.add('hidden');
+                return;
+            }
+            const encontrado = appData.historico.find(h => h.cpf === cpfVal);
+            if (encontrado) {
+                document.getElementById('cli-nome').value = encontrado.nome;
+                document.getElementById('cli-tel').value = encontrado.telefone || '';
+                aviso.classList.remove('hidden');
+            } else {
+                aviso.classList.add('hidden');
+            }
         }
 
         function openModalEstoque() {
@@ -1013,6 +1034,7 @@
             const responsavelOrc = document.getElementById('cli-responsavel').value || currentUser.nome;
             const dataLimiteCalc = calcularDataLimite(dataEntrada, prioridade);
             const nomeCliente = document.getElementById('cli-nome').value;
+            const telefoneCli = document.getElementById('cli-tel').value;
             const modeloVeiculo = document.getElementById('cli-modelo').value;
             const questaoCliente = document.getElementById('cli-questao').value;
 
@@ -1021,7 +1043,7 @@
                 if (cli) {
                     cli.nome = nomeCliente;
                     cli.cpf = cpfInput;
-                    cli.telefone = document.getElementById('cli-tel').value;
+                    cli.telefone = telefoneCli;
                     cli.modelo = modeloVeiculo;
                     cli.placa = placaInput;
                     cli.data = dataEntrada;
@@ -1041,9 +1063,8 @@
                         }
                     }
 
-                    // Atualiza ou insere na aba de Orçamentos
                     if (orcFeito && valorOrc > 0) {
-                        let orcExistente = appData.orcamentos.find(o => o.veiculo.includes(placaInput));
+                        let orcExistente = appData.orcamentos.find(o => o.veiculo.includes(placaInput) && o.status !== 'Resolvido (Cliente Anterior)');
                         if (orcExistente) {
                             orcExistente.cliente = nomeCliente;
                             orcExistente.veiculo = `${modeloVeiculo} (${placaInput})`;
@@ -1062,9 +1083,8 @@
                         }
                     }
 
-                    // Atualiza ou insere no Caixa / Pagamentos
                     if (orcFeito && valorOrc > 0) {
-                        let pagExistente = appData.pagamentos.find(p => p.veiculo.includes(placaInput));
+                        let pagExistente = appData.pagamentos.find(p => p.veiculo.includes(placaInput) && p.status !== 'Resolvido (Cliente Anterior)');
                         if (pagExistente) {
                             pagExistente.valor = valorOrc;
                             pagExistente.questao = questaoCliente;
@@ -1084,11 +1104,6 @@
                     alert('Registro atualizado com sucesso!');
                 }
             } else {
-                const historicoEncontrado = appData.historico.find(h => h.cpf === cpfInput || h.placa === placaInput);
-                if (historicoEncontrado) {
-                    alert(`⚠️ Cliente Recorrente Identificado!\n\nO cliente ${historicoEncontrado.nome} (Veículo: ${historicoEncontrado.modelo} - Placa: ${historicoEncontrado.placa}) possui serviços anteriores registrados no Histórico em ${historicoEncontrado.dataConclusao}.`);
-                }
-
                 let statusInicial = 'Na Vaga';
                 if (!orcFeito) {
                     statusInicial = 'Fila de Espera';
@@ -1107,7 +1122,7 @@
                     id: Date.now(),
                     nome: nomeCliente,
                     cpf: cpfInput,
-                    telefone: document.getElementById('cli-tel').value,
+                    telefone: telefoneCli,
                     modelo: modeloVeiculo,
                     placa: placaInput,
                     questao: questaoCliente,
@@ -1122,7 +1137,6 @@
                 appData.clientes.push(novoCliente);
 
                 if (orcFeito) {
-                    // INSERE AUTOMATICAMENTE NA ABA DE ORÇAMENTOS COM O RESPONSÁVEL
                     appData.orcamentos.push({ 
                         cliente: novoCliente.nome, 
                         veiculo: `${novoCliente.modelo} (${novoCliente.placa})`, 
@@ -1132,7 +1146,6 @@
                         status: 'Aprovado' 
                     });
 
-                    // INSERE AUTOMATICAMENTE COMO PENDENTE NO CAIXA E PAGAMENTOS
                     appData.pagamentos.push({ 
                         id: Date.now(), 
                         cliente: novoCliente.nome, 
@@ -1217,27 +1230,45 @@
         function resolverServico(id) {
             const cliente = appData.clientes.find(c => c.id === id);
             if (!cliente) return;
+            
             appData.historico.push({ ...cliente, dataConclusao: new Date().toLocaleDateString('pt-BR') });
             appData.clientes = appData.clientes.filter(c => c.id !== id);
-            const valorFinal = cliente.valorOrcamento > 0 ? cliente.valorOrcamento : 450.00;
-            const pag = appData.pagamentos.find(p => p.cliente === cliente.nome && p.veiculo.includes(cliente.placa));
-            if (!pag) {
-                appData.pagamentos.push({ id: Date.now(), cliente: cliente.nome, veiculo: `${cliente.modelo} (${cliente.placa})`, questao: cliente.questao, valor: valorFinal, status: 'Pago' });
+            
+            const orc = appData.orcamentos.find(o => o.veiculo.includes(cliente.placa) && o.status !== 'Resolvido (Cliente Anterior)');
+            if (orc) {
+                orc.status = 'Resolvido (Cliente Anterior)';
             } else {
-                pag.status = 'Pago';
+                appData.orcamentos.push({
+                    cliente: cliente.nome,
+                    veiculo: `${cliente.modelo} (${cliente.placa})`,
+                    questao: cliente.questao,
+                    valor: cliente.valorOrcamento > 0 ? cliente.valorOrcamento : 450.00,
+                    responsavel: cliente.responsavel || currentUser.nome,
+                    status: 'Resolvido (Cliente Anterior)'
+                });
             }
+
+            const valorFinal = cliente.valorOrcamento > 0 ? cliente.valorOrcamento : 450.00;
+            const pag = appData.pagamentos.find(p => p.veiculo.includes(cliente.placa) && p.status !== 'Resolvido (Cliente Anterior)');
+            if (!pag) {
+                appData.pagamentos.push({ id: Date.now(), cliente: cliente.nome, veiculo: `${cliente.modelo} (${cliente.placa})`, questao: cliente.questao, valor: valorFinal, status: 'Resolvido (Cliente Anterior)' });
+            } else {
+                pag.status = 'Resolvido (Cliente Anterior)';
+            }
+
             verificarRealocacaoFila();
             renderClientes();
             renderServicos();
             renderHistorico();
+            renderOrcamentos();
             renderPagamentos();
             updateDashboard();
-            alert('Serviço concluído, veículo movido para o Histórico Anterior e caixa atualizado!');
+            alert('Serviço concluído, veículo movido para o Histórico Anterior e posicionado corretamente apenas nas seções de resolvidos!');
         }
 
         function alternarStatusPagamento(id) {
             const pag = appData.pagamentos.find(p => p.id === id);
-            if (pag) {
+            if (pag && pag.status !== 'Resolvido (Cliente Anterior)') {
                 pag.status = pag.status === 'Pendente' ? 'Pago' : 'Pendente';
                 renderPagamentos();
                 updateDashboard();
@@ -1246,27 +1277,54 @@
 
         function renderPagamentos() {
             const tbody = document.getElementById('table-pagamentos-body');
-            tbody.innerHTML = appData.pagamentos.length ? appData.pagamentos.map(p => `
-                <tr class="hover:bg-white/5 transition">
-                    <td class="p-4"><span class="font-bold text-white block">${p.cliente}</span><span class="text-xs text-gray-400">${p.veiculo}</span></td>
-                    <td class="p-4 text-xs text-gray-300">${p.questao}</td>
-                    <td class="p-4 text-white font-medium">R$ ${p.valor.toFixed(2)}</td>
-                    <td class="p-4"><span class="px-2 py-1 rounded text-xs font-semibold ${p.status === 'Pago' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900' : 'bg-amber-950 text-amber-400 border border-amber-900'}">${p.status}</span></td>
-                    <td class="p-4 text-right">
-                        <button onclick="alternarStatusPagamento(${p.id})" class="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded text-xs transition">Alternar</button>
-                    </td>
-                </tr>
-            `).join('') : `<tr><td colspan="5" class="p-6 text-center text-gray-500">Nenhum pagamento registrado.</td></tr>`;
+            
+            const ativos = appData.pagamentos.filter(p => p.status !== 'Resolvido (Cliente Anterior)');
+            const anteriores = appData.pagamentos.filter(p => p.status === 'Resolvido (Cliente Anterior)');
+
+            let html = '';
+            
+            if (ativos.length) {
+                html += ativos.map(p => `
+                    <tr class="hover:bg-white/5 transition">
+                        <td class="p-4"><span class="font-bold text-white block">${p.cliente}</span><span class="text-xs text-gray-400">${p.veiculo}</span></td>
+                        <td class="p-4 text-xs text-gray-300">${p.questao}</td>
+                        <td class="p-4 text-white font-medium">R$ ${p.valor.toFixed(2)}</td>
+                        <td class="p-4"><span class="px-2 py-1 rounded text-xs font-semibold ${p.status === 'Pago' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900' : 'bg-amber-950 text-amber-400 border border-amber-900'}">${p.status}</span></td>
+                        <td class="p-4 text-right">
+                            <button onclick="alternarStatusPagamento(${p.id})" class="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded text-xs transition">Alternar</button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            if (anteriores.length) {
+                html += `<tr class="bg-[#121212] border-t-2 border-brand-border"><td colspan="5" class="p-3 text-xs font-bold text-gray-400 uppercase tracking-wider"><i class="fa-solid fa-clock-rotate-left mr-1 text-blue-400"></i> Clientes Anteriores / Resolvidos</td></tr>`;
+                html += anteriores.map(p => `
+                    <tr class="opacity-60 hover:opacity-100 transition bg-black/20">
+                        <td class="p-4"><span class="font-bold text-gray-300 block">${p.cliente}</span><span class="text-xs text-gray-500">${p.veiculo}</span></td>
+                        <td class="p-4 text-xs text-gray-400">${p.questao}</td>
+                        <td class="p-4 text-gray-300 font-medium">R$ ${p.valor.toFixed(2)}</td>
+                        <td class="p-4"><span class="px-2 py-1 rounded text-xs font-semibold bg-blue-950 text-blue-400 border border-blue-900">Cliente Anterior</span></td>
+                        <td class="p-4 text-right"><span class="text-xs text-gray-500">Concluído</span></td>
+                    </tr>
+                `).join('');
+            }
+
+            if (!ativos.length && !anteriores.length) {
+                html = `<tr><td colspan="5" class="p-6 text-center text-gray-500">Nenhum pagamento registrado.</td></tr>`;
+            }
+
+            tbody.innerHTML = html;
         }
 
         function renderHistorico() {
             const tbody = document.getElementById('table-historico-body');
             tbody.innerHTML = appData.historico.length ? appData.historico.map(h => `
                 <tr class="hover:bg-white/5 transition">
-                    <td class="p-4"><span class="font-bold text-white block">${h.nome}</span><span class="text-xs text-gray-400">${h.cpf}</span></td>
-                    <td class="p-4"><span class="text-white">${h.modelo}</span><span class="block text-xs text-red-500 font-bold">${h.placa}</span></td>
-                    <td class="p-4 text-xs text-gray-300">${h.questao}</td>
-                    <td class="p-4 text-xs text-gray-400">${h.dataConclusao}</td>
+                    <td class="p-4"><span class="font-bold text-white block">${h.nome}</span><span class="text-xs text-gray-400">CPF: ${h.cpf || '--'}</span></td>
+                    <td class="p-4"><span class="text-white">${h.modelo || '--'}</span><span class="block text-xs text-red-500 font-bold">${h.placa || '--'}</span></td>
+                    <td class="p-4 text-xs text-gray-300">${h.questao || '--'}</td>
+                    <td class="p-4 text-xs text-gray-400">${h.dataConclusao || '--'}</td>
                     <td class="p-4 text-right"><span class="bg-blue-950 text-blue-400 border border-blue-900 px-2 py-1 rounded text-xs font-semibold">Retornável</span></td>
                 </tr>
             `).join('') : `<tr><td colspan="5" class="p-6 text-center text-gray-500">Nenhum histórico anterior.</td></tr>`;
@@ -1274,15 +1332,42 @@
 
         function renderOrcamentos() {
             const tbody = document.getElementById('table-orcamentos-body');
-            tbody.innerHTML = appData.orcamentos.length ? appData.orcamentos.map(o => `
-                <tr class="hover:bg-white/5 transition">
-                    <td class="p-4"><span class="font-bold text-white block">${o.cliente}</span><span class="text-xs text-gray-400">${o.veiculo}</span></td>
-                    <td class="p-4 text-xs text-gray-300">${o.questao}</td>
-                    <td class="p-4 text-emerald-400 font-bold">R$ ${o.valor.toFixed(2)}</td>
-                    <td class="p-4 text-xs text-blue-400 font-semibold"><i class="fa-solid fa-user-tie mr-1"></i> ${o.responsavel || 'Não atribuído'}</td>
-                    <td class="p-4"><span class="bg-emerald-950 text-emerald-400 border border-emerald-900 px-2 py-1 rounded text-xs">${o.status}</span></td>
-                </tr>
-            `).join('') : `<tr><td colspan="5" class="p-6 text-center text-gray-500">Nenhum orçamento registrado.</td></tr>`;
+            
+            const ativos = appData.orcamentos.filter(o => o.status !== 'Resolvido (Cliente Anterior)');
+            const anteriores = appData.orcamentos.filter(o => o.status === 'Resolvido (Cliente Anterior)');
+
+            let html = '';
+
+            if (ativos.length) {
+                html += ativos.map(o => `
+                    <tr class="hover:bg-white/5 transition">
+                        <td class="p-4"><span class="font-bold text-white block">${o.cliente}</span><span class="text-xs text-gray-400">${o.veiculo}</span></td>
+                        <td class="p-4 text-xs text-gray-300">${o.questao}</td>
+                        <td class="p-4 text-emerald-400 font-bold">R$ ${o.valor.toFixed(2)}</td>
+                        <td class="p-4 text-xs text-blue-400 font-semibold"><i class="fa-solid fa-user-tie mr-1"></i> ${o.responsavel || 'Não atribuído'}</td>
+                        <td class="p-4"><span class="bg-emerald-950 text-emerald-400 border border-emerald-900 px-2 py-1 rounded text-xs">${o.status}</span></td>
+                    </tr>
+                `).join('');
+            }
+
+            if (anteriores.length) {
+                html += `<tr class="bg-[#121212] border-t-2 border-brand-border"><td colspan="5" class="p-3 text-xs font-bold text-gray-400 uppercase tracking-wider"><i class="fa-solid fa-clock-rotate-left mr-1 text-blue-400"></i> Orçamentos Anteriores / Resolvidos</td></tr>`;
+                html += anteriores.map(o => `
+                    <tr class="opacity-60 hover:opacity-100 transition bg-black/20">
+                        <td class="p-4"><span class="font-bold text-gray-300 block">${o.cliente}</span><span class="text-xs text-gray-500">${o.veiculo}</span></td>
+                        <td class="p-4 text-xs text-gray-400">${o.questao}</td>
+                        <td class="p-4 text-gray-300 font-bold">R$ ${o.valor.toFixed(2)}</td>
+                        <td class="p-4 text-xs text-gray-400"><i class="fa-solid fa-user-tie mr-1"></i> ${o.responsavel || 'Não atribuído'}</td>
+                        <td class="p-4"><span class="bg-blue-950 text-blue-400 border border-blue-900 px-2 py-1 rounded text-xs">Cliente Anterior</span></td>
+                    </tr>
+                `).join('');
+            }
+
+            if (!ativos.length && !anteriores.length) {
+                html = `<tr><td colspan="5" class="p-6 text-center text-gray-500">Nenhum orçamento registrado.</td></tr>`;
+            }
+
+            tbody.innerHTML = html;
         }
 
         function renderServicos() {
@@ -1343,7 +1428,7 @@
             document.getElementById('stat-clientes').innerText = appData.clientes.length;
             document.getElementById('stat-vagas').innerText = `${appData.clientes.filter(c => c.status === 'Na Vaga').length} / 15`;
             document.getElementById('stat-fila').innerText = `${appData.clientes.filter(c => c.status === 'Fila de Espera').length} / 25`;
-            let totalRecebido = appData.pagamentos.filter(p => p.status === 'Pago').reduce((acc, p) => acc + p.valor, 0);
+            let totalRecebido = appData.pagamentos.filter(p => p.status === 'Pago' || p.status === 'Resolvido (Cliente Anterior)').reduce((acc, p) => acc + p.valor, 0);
             let totalPendente = appData.pagamentos.filter(p => p.status === 'Pendente').reduce((acc, p) => acc + p.valor, 0);
             let totalGeral = totalRecebido + totalPendente;
             document.getElementById('stat-caixa').innerText = `R$ ${totalRecebido.toFixed(2)}`;
